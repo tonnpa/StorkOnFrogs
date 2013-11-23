@@ -63,9 +63,11 @@
 // Innentol modosithatod...
 
 #define OBJ_NUM 10
-#define CTR_TMAX 100
+#define U_MAX 100
 #define PI 3.14
 #define POINT_CNT 5
+#define V_MAX 360
+#define EPS 0.0001
 
 //--------------------------------------------------------
 // 3D Vektor
@@ -96,11 +98,13 @@ struct Vector {
 	Vector operator%(const Vector& v) {         // cross product
 		return Vector(y*v.z - z*v.y, z*v.x - x*v.z, x*v.y - y*v.x);
 	}
-	float Length() { return sqrt(x * x + y * y + z * z); }
-
-	//void print(){
-	//	std::cout << "x= ", x, " y= ", y, " z= ", z;
-	//}
+	float Length() {
+		return sqrt(x * x + y * y + z * z); 
+	}
+	Vector normalized(){
+		float length = this->Length();
+		return Vector(x /= length, y /= length, z /= length);
+	}
 };
 
 typedef Vector Point;
@@ -110,7 +114,6 @@ void glPoint3f(Point p){
 }
 
 void draw2DCircle(Point point){
-	glColor3f(1, 0, 0);
 	float radius = 0.1;
 	glBegin(GL_TRIANGLE_FAN);
 	glVertex3f(point.x, point.y, 0);
@@ -146,6 +149,8 @@ struct Color {
 class ParamSurface{
 public:
 	virtual void draw() = 0;
+	virtual Point surfacePoint(float u, float v) = 0;
+	virtual Vector surfaceNormal(float u, float v) = 0;
 };
 
 class CTRSpline{
@@ -187,10 +192,18 @@ public:
 		}
 		return a3[i] * powf(u - t[i], 3) + a2[i] * powf(u - t[i], 2) + v[i] * (u - t[i]) + p[i];
 	}
+	Point curvePointDerivative(float u){
+		int i = 0;
+		for (int j = 0; j < pointCount; ++j){
+			if (u > t[j]){
+				i = j;
+			}
+		}
+		return a3[i] * 3 * powf(u - t[i], 2) + a2[i] * 2 * (u - t[i]) + v[i];
+	}
 	void draw(){
-		glColor3f(0, 0, 1);
 		glBegin(GL_LINE_STRIP);
-		for (int i = 0; i < CTR_TMAX; ++i){
+		for (int i = 0; i < U_MAX; ++i){
 			Point temp = curvePoint(i);
 			glPoint3f(curvePoint(i));
 		}
@@ -208,7 +221,7 @@ class StorkBody : public ParamSurface{
 public:
 	StorkBody(){
 		midline = new CTRSpline();
-		float weightUnit = CTR_TMAX / (POINT_CNT - 1);
+		float weightUnit = U_MAX / (POINT_CNT - 1);
 		midline->addPoint(Point(-5., 5.25, 0), 0);
 		midline->addPoint(Point(-4.6, 2.6, 0), weightUnit * 1);
 		midline->addPoint(Point(-2.75, 0.4, 0), weightUnit * 2);
@@ -225,9 +238,82 @@ public:
 		outline->setup();
 	}
 
+	float radius(float u){
+		return (outline->curvePoint(u) - midline->curvePoint(u)).Length();
+	}
+
+	Vector normal(float u){
+		//N(u) = BxT
+		Vector B = Vector(0, 0, 1);
+		Vector T = midline->curvePointDerivative(u).normalized();
+		return B%T;
+	}
+
+	Point surfacePoint(float u, float v){
+		//r(u,v) = s(u) + B(u) r(u) cos(v) + N(u) r(u) sin (v)
+			//where s(u) - midline
+			//		r(u) - radius
+			//		N(u) = BxT
+		//convert v to radian
+		v = v / 180 * PI;
+		Vector B = Vector(0, 0, 1); //z increases towards us
+		return midline->curvePoint(u) + B*radius(u)*cos(v) + normal(u)*radius(u)*sin(v);
+	}
+
+	//returns surfaceNormal by averaging the normal of nearby surfaces
+	Point surfaceNormal(float u, float v){
+		//v1 r(u-1,v)
+		//v3 r(u+1,v)
+		//v2 r(u,v-1)
+		//v4 r(u,v+1)
+		Point r = surfacePoint(u, v);
+
+		Vector v1 = surfacePoint(u-1, v) - r;
+		Vector v2 = surfacePoint(u, v - 1) - r;
+		Vector v3 = surfacePoint(u + 1, v) - r;
+		Vector v4 = surfacePoint(u, v + 1) - r;
+		int valid = 4;
+		if (u == 0){
+			valid--;
+			v1 = Vector(0, 0, 0);
+		}
+		if (v == 0){
+			valid--;
+			v2 = Vector(0, 0, 0);
+		}
+		if (u == U_MAX - 1){
+			valid--;
+			v3 = Vector(0, 0, 0);
+		}
+		if (v == V_MAX - 1){
+			valid--;
+			v4 = Vector(0, 0, 0);
+		}
+
+		Vector n1 = v2%v1;
+		Vector n2 = v3%v2;
+		Vector n3 = v4%v3;
+		Vector n4 = v1%v4;
+
+		return (n1 + n2 + n3 + n4) / valid;
+	}
+
 	void draw(){
-		midline->draw();
-		outline->draw();
+		glBegin(GL_TRIANGLES);
+		for (int u = 0; u < U_MAX; ++u){
+			for (int v = 0; v < V_MAX; ++v){
+				glPoint3f(surfacePoint(u, v));
+				glPoint3f(surfacePoint(u, v+1));
+				glPoint3f(surfacePoint(u+1, v+1));
+
+				glPoint3f(surfacePoint(u+1, v+1));
+				glPoint3f(surfacePoint(u+1, v));
+				glPoint3f(surfacePoint(u, v));
+			}
+		}
+		glEnd();
+		//midline->draw();
+		//outline->draw();
 	}
 };
 
