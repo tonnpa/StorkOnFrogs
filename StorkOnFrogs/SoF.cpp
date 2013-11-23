@@ -65,6 +65,7 @@
 #define OBJ_NUM 10
 #define CTR_TMAX 100
 #define PI 3.14
+#define POINT_CNT 5
 
 //--------------------------------------------------------
 // 3D Vektor
@@ -143,68 +144,52 @@ void draw2DCircle(Point point){
 }
 
 class CTRSpline : public ParamSurface{
-	Point p[4];
-	Vector v[4];
-	float t[4];
-	Vector a2[3], a3[3];
+	float t[POINT_CNT];
+	Point p[POINT_CNT];
+	Vector v[POINT_CNT];
+	Vector a2[POINT_CNT - 1], a3[POINT_CNT - 1];
 
 	int pointCount;
 	int functionCount;
 	
 public:
-	CTRSpline():pointCount(4), functionCount(3){}
+	CTRSpline():pointCount(0), functionCount(POINT_CNT-1){}
 
-	void setPoints(Point& p0, Point& p1, Point& p2, Point& p3){
-		p[0] = p0;
-		p[1] = p1;
-		p[2] = p2;
-		p[3] = p3;
-	}
-	void setWeights(float t0, float t1, float t2, float t3){
-		t[0] = t0;
-		t[1] = t1;
-		t[2] = t2;
-		t[3] = t3;
+	void addPoint(Point& p, float weight){
+		if (pointCount < POINT_CNT){
+			this->p[pointCount] = p;
+			this->t[pointCount] = weight;
+			pointCount++;
+		}
 	}
 	void setup(){
-		v[0] = v[3] = Vector (0,0,0);
+		v[0] = v[pointCount] = Vector (0,0,0);
 		for (int i = 1; i < pointCount-1; ++i){
 			v[i] = ((p[i + 1] - p[i]) / (t[i + 1] - t[i]) + (p[i] - p[i - 1]) / (t[i] - t[i - 1]))*0.5;
 		}
 
 		for (int i = 0; i < functionCount; ++i){
-			a2[i] = (p[i + 1] - p[i]) * 3 / powf(t[i + 1] - t[i], 2) - (v[i+1]+v[i]*2)/(t[i+1]-t[i]);
-			a3[i] = (p[i] - p[i + 1]) * 2 / powf(t[i + 1] - t[i], 3) + (v[i + 1] + v[i]) / powf(t[i + 1] - t[i], 2);
+			a2[i] = (p[i + 1] - p[i]) * 3 / powf(t[i + 1] - t[i], 2.0) - (v[i+1]+v[i]*2)/(t[i+1]-t[i]);
+			a3[i] = (p[i] - p[i + 1]) * 2 / powf(t[i + 1] - t[i], 3.0) + (v[i + 1] + v[i]) / powf(t[i + 1] - t[i], 2.0);
 		}
 	}
 	Point curvePoint(float u){
 		int i = 0;
-		for (int j = 0; j < 4; ++j){
+		for (int j = 0; j < pointCount; ++j){
 			if (u > t[j]){
 				i = j;
 			}
 		}
-		std::cout << i;
 		return a3[i] * powf(u - t[i], 3) + a2[i] * powf(u - t[i], 2) + v[i] * (u - t[i]) + p[i];
 	}
 	void draw(){
+		glColor3f(0, 0, 1);
 		glBegin(GL_LINE_STRIP);
 		for (int i = 0; i < CTR_TMAX; ++i){
+			Point temp = curvePoint(i);
 			glPoint3f(curvePoint(i));
 		}
 		glEnd();
-		for (int i = 0; i < pointCount; ++i){
-			draw2DCircle(p[i]);
-		}
-	}
-
-	void drawFunction(int f){
-		glColor3f(0, 0, 1);
-		glBegin(GL_LINE_STRIP);
-		for (int i = t[f]; i < t[f+1]; ++i){
-			glPoint3f(curvePoint(i));
-		}
-
 		for (int i = 0; i < pointCount; ++i){
 			draw2DCircle(p[i]);
 		}
@@ -238,8 +223,13 @@ void onInitialization() {
 	gluOrtho2D(-8, 10, -8, 10);
 
 	midline = new CTRSpline();
-	midline->setPoints(Point(-5., 5.25, 0), Point(-4, 1.25, 0), Point(-1, -0.25, 0), Point(2.65, -2.5, 0));
-	midline->setWeights(0, 33, 66, 100);
+	float weightUnit = CTR_TMAX / (POINT_CNT-1);
+	midline->addPoint(Point(-5., 5.25, 0), 0);
+	midline->addPoint(Point(-4.6, 2.6, 0), weightUnit * 1);
+	midline->addPoint(Point(-2.75, 0.4, 0), weightUnit * 2);
+	midline->addPoint(Point(0.1, -0.75, 0), weightUnit * 3);
+	midline->addPoint(Point(2.65, -2.5, 0), weightUnit * 4);
+
 	midline->setup();
 }
 
