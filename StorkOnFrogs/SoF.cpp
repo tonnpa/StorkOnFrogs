@@ -61,12 +61,14 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
 
+#define OBJ_NUM 10
+#define CTR_TMAX 100
+
 //--------------------------------------------------------
 // 3D Vektor
 //--------------------------------------------------------
 struct Vector {
 	float x, y, z;
-
 	Vector() {
 		x = y = z = 0;
 	}
@@ -76,21 +78,25 @@ struct Vector {
 	Vector operator*(float a) {
 		return Vector(x * a, y * a, z * a);
 	}
+	Vector operator/(float a) {
+		return Vector(x / a, y / a, z / a);
+	}
 	Vector operator+(const Vector& v) {
 		return Vector(x + v.x, y + v.y, z + v.z);
 	}
 	Vector operator-(const Vector& v) {
 		return Vector(x - v.x, y - v.y, z - v.z);
 	}
-	float operator*(const Vector& v) { 	// dot product
+	float operator*(const Vector& v) {         // dot product
 		return (x * v.x + y * v.y + z * v.z);
 	}
-	Vector operator%(const Vector& v) { 	// cross product
+	Vector operator%(const Vector& v) {         // cross product
 		return Vector(y*v.z - z*v.y, z*v.x - x*v.z, x*v.y - y*v.x);
 	}
 	float Length() { return sqrt(x * x + y * y + z * z); }
 };
 
+typedef Vector Point;
 //--------------------------------------------------------
 // Spektrum illetve szin
 //--------------------------------------------------------
@@ -114,22 +120,100 @@ struct Color {
 	}
 };
 
+class ParamSurface{
+public:
+	virtual void draw() = 0;
+};
+
+void glPoint3f(Point p){
+	glVertex3f(p.x, p.y, p.z);
+}
+
+class CTRSpline : public ParamSurface{
+	Point p[4];
+	Vector v[4];
+	float t[4];
+	Vector a2[3], a3[3];
+
+	int pointCount;
+	int functionCount;
+	
+public:
+	CTRSpline():pointCount(4), functionCount(3){}
+
+	void setPoints(Point& p0, Point& p1, Point& p2, Point& p3){
+		p[0] = p0;
+		p[1] = p1;
+		p[2] = p2;
+		p[3] = p3;
+	}
+	void setVectors(Point& v0, Point& v1, Point& v2, Point& v3){
+		v[0] = v0 - p[0];
+		v[1] = v1 - p[1];
+		v[2] = v2 - p[2];
+		v[3] = v3 - p[3];
+	}
+	void setWeights(float t0, float t1, float t2, float t3){
+		t[0] = t0;
+		t[1] = t1;
+		t[2] = t2;
+		t[3] = t3;
+	}
+	void setup(){
+		for (int i = 0; i < functionCount; ++i){
+			a2[i] = (p[i + 1] - p[i]) * 3 / powf(t[i + 1] - t[i], 2) - v[i+1]+v[i]*2/(t[i+1]-t[i]);
+			a3[i] = (p[i] - p[i + 1]) * 2 / powf(t[i + 1] - t[i], 3) + v[i + 1] + v[i] / powf(t[i + 1] - t[i], 2);
+		}
+	}
+	Point curvePoint(float u){
+		int i = 0;
+		for (int j = 0; j < 4; ++j){
+			if (u > t[j]){
+				i = j;
+			}
+		}
+		return a3[i] * powf(u - t[i], 3) + a2[i] * powf(u - t[i], 2) + v[i] * (u - t[i]) + p[i];
+	}
+	void draw(){
+		glBegin(GL_LINE_STRIP);
+		for (int i = 0; i < CTR_TMAX; ++i){
+			glPoint3f(curvePoint(i));
+		}
+		glEnd();
+	}
+};
+
+class Object{
+	ParamSurface* surfaces[OBJ_NUM];
+	int surfaceCount;
+	
+public:
+	Object() :surfaceCount(0){}
+	void addSurface(ParamSurface* newSurface){
+		if (surfaceCount < OBJ_NUM){
+			surfaces[surfaceCount] = newSurface;
+			surfaceCount++;
+		}
+	}
+};
+
 const int screenWidth = 600;	// alkalmazA!s ablak felbontA!sa
 const int screenHeight = 600;
 
 
 Color image[screenWidth*screenHeight];	// egy alkalmazA!s ablaknyi kA©p
 
-
+CTRSpline* midline;
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization() {
 	glViewport(0, 0, screenWidth, screenHeight);
+	gluOrtho2D(-8, 20, -8, 20);
 
-	// Peldakent keszitunk egy kepet az operativ memoriaba
-	for (int Y = 0; Y < screenHeight; Y++)
-	for (int X = 0; X < screenWidth; X++)
-		image[Y*screenWidth + X] = Color((float)X / screenWidth, (float)Y / screenHeight, 0);
-
+	midline = new CTRSpline();
+	midline->setPoints(Point(-5., 5.25, 0), Point(-4, 1.25, 0), Point(-1, -0.25, 0), Point(2.65, -2.5, 0));
+	midline->setVectors(Point(-4.8, 3.75, 0), Point(-2.9, 0, 0), Point(0, -0.75, 0), Point(3.1, -2.5, 0));
+	midline->setWeights(0, 33, 66, 100);
+	midline->setup();
 }
 
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
@@ -137,53 +221,22 @@ void onDisplay() {
 	glClearColor(0.1f, 0.2f, 0.3f, 1.0f);		// torlesi szin beallitasa
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
-	// ..
-
-	// Peldakent atmasoljuk a kepet a rasztertarba
-	glDrawPixels(screenWidth, screenHeight, GL_RGB, GL_FLOAT, image);
-	// Majd rajzolunk egy kek haromszoget
 	glColor3f(0, 0, 1);
-	glBegin(GL_TRIANGLES);
-	glVertex2f(-0.2f, -0.2f);
-	glVertex2f(0.2f, -0.2f);
-	glVertex2f(0.0f, 0.2f);
-	glEnd();
-
-	// ...
+	midline->draw();
 
 	glutSwapBuffers();     				// Buffercsere: rajzolas vege
-
 }
 
 // Billentyuzet esemenyeket lekezelo fuggveny (lenyomas)
-void onKeyboard(unsigned char key, int x, int y) {
-	if (key == 'd') glutPostRedisplay(); 		// d beture rajzold ujra a kepet
-
-}
-
+void onKeyboard(unsigned char key, int x, int y) {}
 // Billentyuzet esemenyeket lekezelo fuggveny (felengedes)
-void onKeyboardUp(unsigned char key, int x, int y) {
-
-}
-
+void onKeyboardUp(unsigned char key, int x, int y) {}
 // Eger esemenyeket lekezelo fuggveny
-void onMouse(int button, int state, int x, int y) {
-	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)   // A GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON illetve GLUT_DOWN / GLUT_UP
-		glutPostRedisplay(); 						 // Ilyenkor rajzold ujra a kepet
-}
-
+void onMouse(int button, int state, int x, int y) {}
 // Eger mozgast lekezelo fuggveny
-void onMouseMotion(int x, int y)
-{
-
-}
-
+void onMouseMotion(int x, int y){}
 // `Idle' esemenykezelo, jelzi, hogy az ido telik, az Idle esemenyek frekvenciajara csak a 0 a garantalt minimalis ertek
-void onIdle() {
-	long time = glutGet(GLUT_ELAPSED_TIME);		// program inditasa ota eltelt ido
-
-}
-
+void onIdle() {}
 // ...Idaig modosithatod
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
