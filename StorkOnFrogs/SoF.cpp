@@ -97,9 +97,29 @@ struct Vector {
 		return Vector(y*v.z - z*v.y, z*v.x - x*v.z, x*v.y - y*v.x);
 	}
 	float Length() { return sqrt(x * x + y * y + z * z); }
+
+	//void print(){
+	//	std::cout << "x= ", x, " y= ", y, " z= ", z;
+	//}
 };
 
 typedef Vector Point;
+
+void glPoint3f(Point p){
+	glVertex3f(p.x, p.y, p.z);
+}
+
+void draw2DCircle(Point point){
+	glColor3f(1, 0, 0);
+	float radius = 0.1;
+	glBegin(GL_TRIANGLE_FAN);
+	glVertex3f(point.x, point.y, 0);
+	for (int i = 0; i <= 360; ++i){
+		glVertex3f(point.x + radius*cos(i / 360.0 * 2 * PI), point.y + radius*sin(i / 360.0 * 2 * PI), 0);
+	}
+	glEnd();
+}
+
 //--------------------------------------------------------
 // Spektrum illetve szin
 //--------------------------------------------------------
@@ -127,32 +147,6 @@ class ParamSurface{
 public:
 	virtual void draw() = 0;
 };
-
-class StorkBody : public ParamSurface{
-	CTRSpline* midline;
-	CTRSpline* outline;
-
-public:
-	StorkBody(){
-		midline = new CTRSpline();
-		outline = new CTRSpline();
-	}
-};
-
-void glPoint3f(Point p){
-	glVertex3f(p.x, p.y, p.z);
-}
-
-void draw2DCircle(Point point){
-	glColor3f(1, 0, 0);
-	float radius = 0.1;
-	glBegin(GL_TRIANGLE_FAN);
-	glVertex3f(point.x, point.y, 0);
-	for (int i = 0; i <= 360; ++i){
-		glVertex3f(point.x + radius*cos(i / 360.0 * 2 * PI), point.y + radius*sin(i / 360.0 * 2 * PI), 0);
-	}
-	glEnd();
-}
 
 class CTRSpline{
 	float t[POINT_CNT];
@@ -207,6 +201,36 @@ public:
 	}
 };
 
+class StorkBody : public ParamSurface{
+	CTRSpline* midline;
+	CTRSpline* outline;
+
+public:
+	StorkBody(){
+		midline = new CTRSpline();
+		float weightUnit = CTR_TMAX / (POINT_CNT - 1);
+		midline->addPoint(Point(-5., 5.25, 0), 0);
+		midline->addPoint(Point(-4.6, 2.6, 0), weightUnit * 1);
+		midline->addPoint(Point(-2.75, 0.4, 0), weightUnit * 2);
+		midline->addPoint(Point(0.1, -0.75, 0), weightUnit * 3);
+		midline->addPoint(Point(2.65, -2.5, 0), weightUnit * 4);
+		midline->setup();
+
+		outline = new CTRSpline();
+		outline->addPoint(Point(-4.8, 5.25, 0), 0);
+		outline->addPoint(Point(-4.1, 2.8, 0), weightUnit * 1);
+		outline->addPoint(Point(-1.5, 1.6, 0), weightUnit * 2);
+		outline->addPoint(Point(1.1, 0, 0), weightUnit * 3);
+		outline->addPoint(Point(3, -2.25, 0), weightUnit * 4);
+		outline->setup();
+	}
+
+	void draw(){
+		midline->draw();
+		outline->draw();
+	}
+};
+
 class Object{
 	ParamSurface* surfaces[OBJ_NUM];
 	int surfaceCount;
@@ -231,8 +255,8 @@ class Camera{
 	Vector vup;
 
 public:
-	Camera(Point eye, Point lookAt, float fov, float asp, float fp, float bp) :
-		eye(eye), lookAt(lookAt), fovy(fov), aspect(asp), zNear(fp), zFar(bp){};
+	Camera(Point eye, Point lookAt, Vector vup, float fov, float asp, float fp, float bp) :
+		eye(eye), lookAt(lookAt), vup(vup), fovy(fov), aspect(asp), zNear(fp), zFar(bp){};
 
 	void setOpenGL(){
 		glMatrixMode(GL_PROJECTION);
@@ -246,11 +270,24 @@ public:
 
 class Scene{
 	Object* objects[OBJ_NUM];
-	Camera camera;
+	Camera* camera;
 	int objectCount;
 
 public:
-	Scene() :objectCount(0){}
+	Scene() :objectCount(0){
+		camera = new Camera(Point(0, 0, 0), Point(0, 0, -1), Vector(0, 1, 0), 54, 1, 1, 100);
+	}
+
+	void render(){
+		StorkBody* storkbody = new StorkBody();
+		
+		camera->setOpenGL();
+		glMatrixMode(GL_MODELVIEW);
+		glTranslatef(0, 0, -20);
+
+		storkbody->draw();
+	}
+
 	void addObject(Object* newObject){
 		if (objectCount < OBJ_NUM){
 			objects[objectCount] = newObject;
@@ -265,30 +302,13 @@ const int screenHeight = 600;
 
 Color image[screenWidth*screenHeight];	// egy alkalmazA!s ablaknyi kA©p
 
+Scene* scene;
 
-
-CTRSpline* midline;
-CTRSpline* outline;
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization() {
 	glViewport(0, 0, screenWidth, screenHeight);
 
-	midline = new CTRSpline();
-	float weightUnit = CTR_TMAX / (POINT_CNT-1);
-	midline->addPoint(Point(-5., 5.25, 0), 0);
-	midline->addPoint(Point(-4.6, 2.6, 0), weightUnit * 1);
-	midline->addPoint(Point(-2.75, 0.4, 0), weightUnit * 2);
-	midline->addPoint(Point(0.1, -0.75, 0), weightUnit * 3);
-	midline->addPoint(Point(2.65, -2.5, 0), weightUnit * 4);
-	midline->setup();
-
-	outline = new CTRSpline();
-	outline->addPoint(Point(-4.8, 5.25, 0), 0);
-	outline->addPoint(Point(-4.1, 2.8, 0), weightUnit * 1);
-	outline->addPoint(Point(-1.5, 1.6, 0), weightUnit * 2);
-	outline->addPoint(Point(1.1, 0, 0), weightUnit * 3);
-	outline->addPoint(Point(3, -2.25, 0), weightUnit * 4);
-	outline->setup();
+	scene = new Scene();
 }
 
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
@@ -296,8 +316,7 @@ void onDisplay() {
 	glClearColor(0.1f, 0.2f, 0.3f, 1.0f);		// torlesi szin beallitasa
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
-	midline->draw();
-	outline->draw();
+	scene->render();
 
 	glutSwapBuffers();     				// Buffercsere: rajzolas vege
 }
