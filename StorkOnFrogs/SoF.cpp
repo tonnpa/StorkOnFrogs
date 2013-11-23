@@ -123,6 +123,10 @@ void draw2DCircle(Point point){
 	glEnd();
 }
 
+float toRadian(float d){
+	return d / 180 * PI;
+}
+
 //--------------------------------------------------------
 // Spektrum illetve szin
 //--------------------------------------------------------
@@ -144,13 +148,6 @@ struct Color {
 	Color operator+(const Color& c) {
 		return Color(r + c.r, g + c.g, b + c.b);
 	}
-};
-
-class ParamSurface{
-public:
-	virtual void draw() = 0;
-	virtual Point surfacePoint(float u, float v) = 0;
-	virtual Vector surfaceNormal(float u, float v) = 0;
 };
 
 class CTRSpline{
@@ -214,6 +211,59 @@ public:
 	}
 };
 
+class ParamSurface{
+public:
+	virtual void draw() = 0;
+	virtual Point surfacePoint(float u, float v) = 0;
+	virtual Vector surfaceNormal(float u, float v) = 0;
+};
+
+class Ellipsoid : public ParamSurface{
+	float a, b, c;
+	Point center;
+
+public:
+	Ellipsoid(Point center, float a, float b, float c) :
+		center(center), a(a), b(b), c(c){}
+
+	//u and v are to be interpreted in degrees
+	Point surfacePoint(float u, float v){
+		//u - angle to z axis
+		//v - angle to x axis
+		u = toRadian(u);
+		v = toRadian(v);
+		float x = a*sin(u)*cos(v);
+		float y = b*sin(u)*sin(v);
+		float z = c*cos(u);
+		return Point(x, y, z)+center;
+	}
+
+	Point surfaceNormal(float u, float v){
+		//dr/du x dr/dv
+		u = toRadian(u);
+		v = toRadian(v);
+		Vector drdu = Vector(a*cos(u)*cos(v), b*cos(u)*sin(v), -c*sin(u));
+		Vector drdv = Vector(-a*sin(u)*sin(v), b*sin(u)*cos(v), 0);
+		return drdu%drdv;
+	}
+
+	void draw(){
+		glBegin(GL_TRIANGLES);
+		for (int u = -90; u <= 90; ++u){
+			for (int v = -180; v <= 180; ++v){
+				glPoint3f(surfacePoint(u, v));
+				glPoint3f(surfacePoint(u, v + 1));
+				glPoint3f(surfacePoint(u + 1, v + 1));
+
+				glPoint3f(surfacePoint(u + 1, v + 1));
+				glPoint3f(surfacePoint(u + 1, v));
+				glPoint3f(surfacePoint(u, v));
+			}
+		}
+		glEnd();
+	}
+};
+
 class StorkBody : public ParamSurface{
 	CTRSpline* midline;
 	CTRSpline* outline;
@@ -237,29 +287,25 @@ public:
 		outline->addPoint(Point(3, -2.25, 0), weightUnit * 4);
 		outline->setup();
 	}
-
 	float radius(float u){
 		return (outline->curvePoint(u) - midline->curvePoint(u)).Length();
 	}
-
 	Vector normal(float u){
 		//N(u) = BxT
 		Vector B = Vector(0, 0, 1);
 		Vector T = midline->curvePointDerivative(u).normalized();
 		return B%T;
 	}
-
 	Point surfacePoint(float u, float v){
 		//r(u,v) = s(u) + B(u) r(u) cos(v) + N(u) r(u) sin (v)
 			//where s(u) - midline
 			//		r(u) - radius
 			//		N(u) = BxT
 		//convert v to radian
-		v = v / 180 * PI;
+		v = toRadian(v);
 		Vector B = Vector(0, 0, 1); //z increases towards us
 		return midline->curvePoint(u) + B*radius(u)*cos(v) + normal(u)*radius(u)*sin(v);
 	}
-
 	//returns surfaceNormal by averaging the normal of nearby surfaces
 	Point surfaceNormal(float u, float v){
 		//v1 r(u-1,v)
@@ -297,7 +343,6 @@ public:
 
 		return (n1 + n2 + n3 + n4) / valid;
 	}
-
 	void draw(){
 		glBegin(GL_TRIANGLES);
 		for (int u = 0; u < U_MAX; ++u){
@@ -312,8 +357,10 @@ public:
 			}
 		}
 		glEnd();
+		//glColor3f(1, 0, 0);
 		//midline->draw();
 		//outline->draw();
+		//glColor3f(1, 1, 1);
 	}
 };
 
@@ -366,12 +413,14 @@ public:
 
 	void render(){
 		StorkBody* storkbody = new StorkBody();
-		
+		Ellipsoid* ellipsoid = new Ellipsoid(Point(-5.7, 5, 0), 1, 0.6, 0.5);
+
 		camera->setOpenGL();
 		glMatrixMode(GL_MODELVIEW);
 		glTranslatef(0, 0, -20);
 
 		storkbody->draw();
+		ellipsoid->draw();
 	}
 
 	void addObject(Object* newObject){
