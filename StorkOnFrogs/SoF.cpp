@@ -128,6 +128,17 @@ public:
 	virtual void draw() = 0;
 };
 
+class StorkBody : public ParamSurface{
+	CTRSpline* midline;
+	CTRSpline* outline;
+
+public:
+	StorkBody(){
+		midline = new CTRSpline();
+		outline = new CTRSpline();
+	}
+};
+
 void glPoint3f(Point p){
 	glVertex3f(p.x, p.y, p.z);
 }
@@ -143,7 +154,7 @@ void draw2DCircle(Point point){
 	glEnd();
 }
 
-class CTRSpline : public ParamSurface{
+class CTRSpline{
 	float t[POINT_CNT];
 	Point p[POINT_CNT];
 	Vector v[POINT_CNT];
@@ -210,17 +221,57 @@ public:
 	}
 };
 
+class Camera{
+	float fovy; //Specifies the field of view angle, in degrees, in the y direction.
+	float aspect; //Specifies the aspect ratio that determines the field of view in the x direction. The aspect ratio is the ratio of x (width) to y (height).
+	float zNear; //Specifies the distance from the viewer to the near clipping plane (always positive).
+	float zFar; //Specifies the distance from the viewer to the far clipping plane (always positive).
+	
+	Point eye, lookAt;
+	Vector vup;
+
+public:
+	Camera(Point eye, Point lookAt, float fov, float asp, float fp, float bp) :
+		eye(eye), lookAt(lookAt), fovy(fov), aspect(asp), zNear(fp), zFar(bp){};
+
+	void setOpenGL(){
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+		gluPerspective(fovy, aspect, zNear, zFar);
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+		gluLookAt(eye.x, eye.y, eye.z, lookAt.x, lookAt.y, lookAt.z, vup.x, vup.y, vup.z);
+	}
+};
+
+class Scene{
+	Object* objects[OBJ_NUM];
+	Camera camera;
+	int objectCount;
+
+public:
+	Scene() :objectCount(0){}
+	void addObject(Object* newObject){
+		if (objectCount < OBJ_NUM){
+			objects[objectCount] = newObject;
+			objectCount++;
+		}
+	}
+};
+
 const int screenWidth = 600;	// alkalmazA!s ablak felbontA!sa
 const int screenHeight = 600;
 
 
 Color image[screenWidth*screenHeight];	// egy alkalmazA!s ablaknyi kA©p
 
+
+
 CTRSpline* midline;
+CTRSpline* outline;
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization() {
 	glViewport(0, 0, screenWidth, screenHeight);
-	gluOrtho2D(-8, 10, -8, 10);
 
 	midline = new CTRSpline();
 	float weightUnit = CTR_TMAX / (POINT_CNT-1);
@@ -229,8 +280,15 @@ void onInitialization() {
 	midline->addPoint(Point(-2.75, 0.4, 0), weightUnit * 2);
 	midline->addPoint(Point(0.1, -0.75, 0), weightUnit * 3);
 	midline->addPoint(Point(2.65, -2.5, 0), weightUnit * 4);
-
 	midline->setup();
+
+	outline = new CTRSpline();
+	outline->addPoint(Point(-4.8, 5.25, 0), 0);
+	outline->addPoint(Point(-4.1, 2.8, 0), weightUnit * 1);
+	outline->addPoint(Point(-1.5, 1.6, 0), weightUnit * 2);
+	outline->addPoint(Point(1.1, 0, 0), weightUnit * 3);
+	outline->addPoint(Point(3, -2.25, 0), weightUnit * 4);
+	outline->setup();
 }
 
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
@@ -239,6 +297,7 @@ void onDisplay() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
 	midline->draw();
+	outline->draw();
 
 	glutSwapBuffers();     				// Buffercsere: rajzolas vege
 }
