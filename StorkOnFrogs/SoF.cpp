@@ -57,12 +57,14 @@
 #include <GL/glut.h>                                                                                                                                                                                                              
 #endif          
 
+#include <iostream>
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
 
 #define OBJ_NUM 10
 #define CTR_TMAX 100
+#define PI 3.14
 
 //--------------------------------------------------------
 // 3D Vektor
@@ -129,6 +131,17 @@ void glPoint3f(Point p){
 	glVertex3f(p.x, p.y, p.z);
 }
 
+void draw2DCircle(Point point){
+	glColor3f(1, 0, 0);
+	float radius = 0.1;
+	glBegin(GL_TRIANGLE_FAN);
+	glVertex3f(point.x, point.y, 0);
+	for (int i = 0; i <= 360; ++i){
+		glVertex3f(point.x + radius*cos(i / 360.0 * 2 * PI), point.y + radius*sin(i / 360.0 * 2 * PI), 0);
+	}
+	glEnd();
+}
+
 class CTRSpline : public ParamSurface{
 	Point p[4];
 	Vector v[4];
@@ -147,12 +160,6 @@ public:
 		p[2] = p2;
 		p[3] = p3;
 	}
-	void setVectors(Point& v0, Point& v1, Point& v2, Point& v3){
-		v[0] = v0 - p[0];
-		v[1] = v1 - p[1];
-		v[2] = v2 - p[2];
-		v[3] = v3 - p[3];
-	}
 	void setWeights(float t0, float t1, float t2, float t3){
 		t[0] = t0;
 		t[1] = t1;
@@ -160,9 +167,14 @@ public:
 		t[3] = t3;
 	}
 	void setup(){
+		v[0] = v[3] = Vector (0,0,0);
+		for (int i = 1; i < pointCount-1; ++i){
+			v[i] = ((p[i + 1] - p[i]) / (t[i + 1] - t[i]) + (p[i] - p[i - 1]) / (t[i] - t[i - 1]))*0.5;
+		}
+
 		for (int i = 0; i < functionCount; ++i){
-			a2[i] = (p[i + 1] - p[i]) * 3 / powf(t[i + 1] - t[i], 2) - v[i+1]+v[i]*2/(t[i+1]-t[i]);
-			a3[i] = (p[i] - p[i + 1]) * 2 / powf(t[i + 1] - t[i], 3) + v[i + 1] + v[i] / powf(t[i + 1] - t[i], 2);
+			a2[i] = (p[i + 1] - p[i]) * 3 / powf(t[i + 1] - t[i], 2) - (v[i+1]+v[i]*2)/(t[i+1]-t[i]);
+			a3[i] = (p[i] - p[i + 1]) * 2 / powf(t[i + 1] - t[i], 3) + (v[i + 1] + v[i]) / powf(t[i + 1] - t[i], 2);
 		}
 	}
 	Point curvePoint(float u){
@@ -172,6 +184,7 @@ public:
 				i = j;
 			}
 		}
+		std::cout << i;
 		return a3[i] * powf(u - t[i], 3) + a2[i] * powf(u - t[i], 2) + v[i] * (u - t[i]) + p[i];
 	}
 	void draw(){
@@ -180,6 +193,21 @@ public:
 			glPoint3f(curvePoint(i));
 		}
 		glEnd();
+		for (int i = 0; i < pointCount; ++i){
+			draw2DCircle(p[i]);
+		}
+	}
+
+	void drawFunction(int f){
+		glColor3f(0, 0, 1);
+		glBegin(GL_LINE_STRIP);
+		for (int i = t[f]; i < t[f+1]; ++i){
+			glPoint3f(curvePoint(i));
+		}
+
+		for (int i = 0; i < pointCount; ++i){
+			draw2DCircle(p[i]);
+		}
 	}
 };
 
@@ -207,11 +235,10 @@ CTRSpline* midline;
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization() {
 	glViewport(0, 0, screenWidth, screenHeight);
-	gluOrtho2D(-8, 20, -8, 20);
+	gluOrtho2D(-8, 10, -8, 10);
 
 	midline = new CTRSpline();
 	midline->setPoints(Point(-5., 5.25, 0), Point(-4, 1.25, 0), Point(-1, -0.25, 0), Point(2.65, -2.5, 0));
-	midline->setVectors(Point(-4.8, 3.75, 0), Point(-2.9, 0, 0), Point(0, -0.75, 0), Point(3.1, -2.5, 0));
 	midline->setWeights(0, 33, 66, 100);
 	midline->setup();
 }
@@ -221,7 +248,6 @@ void onDisplay() {
 	glClearColor(0.1f, 0.2f, 0.3f, 1.0f);		// torlesi szin beallitasa
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
-	glColor3f(0, 0, 1);
 	midline->draw();
 
 	glutSwapBuffers();     				// Buffercsere: rajzolas vege
