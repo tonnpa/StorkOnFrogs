@@ -114,7 +114,7 @@ void glPoint3f(Point p){
 }
 
 void draw2DCircle(Point point){
-	float radius = 0.1;
+	float radius = 0.2;
 	glBegin(GL_TRIANGLE_FAN);
 	glVertex3f(point.x, point.y, 0);
 	for (int i = 0; i <= 360; ++i){
@@ -229,6 +229,26 @@ public:
 			}
 		}
 		glEnd();
+	}
+};
+
+class Plane : public ParamSurface{
+	float xMax, yMax;
+	Point leftCorner;
+	Vector x, y;
+
+public:
+	Plane(Point ref, Vector i, Vector j, float xMax, float yMax) :
+		leftCorner(ref), xMax(xMax), yMax(yMax){
+		x = i.normalized();
+		y = j.normalized();
+	}
+	Point surfacePoint(float u, float v){
+		Point temp = leftCorner + x * u / U_MAX * xMax + y * v / V_MAX*yMax;
+		return leftCorner + x * u / U_MAX * xMax + y * v / V_MAX*yMax;
+	}
+	Point surfaceNormal(float u, float v){
+		return x%y;
 	}
 };
 
@@ -449,13 +469,13 @@ class Scene{
 
 public:
 	Scene() :objectCount(0){
-		camera = new Camera(Point(0, 0, 0), Point(0, 0, -1), Vector(0, 1, 0), 54, 1, 1, 100);
+		camera = new Camera(Point(-5, 10, -30), Point(-5, 5, 0), Vector(0, 1, 0), 54, 1, 1, 100);
 	}
 
 	void render(){
 		camera->setOpenGL();
 		glMatrixMode(GL_MODELVIEW);
-		glTranslatef(0, 0, -20);
+		//glTranslatef(0, 0, -20);
 		
 		for (int i = 0; i < objectCount; ++i){
 			objects[i]->draw();
@@ -494,6 +514,11 @@ public:
 		stork->addSurface(crd);
 
 		this->addObject(stork);
+		
+		Object* terrain = new Object();
+		Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 0, -1), 10, 10);
+		terrain->addSurface(plane);
+		this->addObject(terrain);
 	}
 
 	void addObject(Object* newObject){
