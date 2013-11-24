@@ -264,6 +264,48 @@ public:
 	}
 };
 
+class Cone : public ParamSurface{
+	float h, radius;
+	Point center;
+
+public:
+	Cone(Point center, float h, float r): center(center), h(h), radius(r){}
+	Point surfacePoint(float u, float v){
+		//u - h
+		//v - angle to x
+		v = toRadian(v);
+		float x = -u / U_MAX*h;
+		float y = (h - fabs(x)) / h * radius*sin(v);
+		float z = (h - fabs(x)) / h * radius*cos(v);
+		return Point(x, y, z) + center;
+	}
+	Vector surfaceNormal(float u, float v){
+		v = toRadian(v);
+		Vector drdu = Vector(h/U_MAX, radius*sin(v)/h, radius*cos(v)/h);
+		Vector drdv = Vector(0, (h - u) / h *radius*cos(v), -(h - u) / h *radius*sin(v));
+		return drdu%drdv;
+	}
+	void draw(){
+		glBegin(GL_TRIANGLES);
+		for (int u = 0; u < U_MAX; ++u){
+			for (int v = 0; v < V_MAX; ++v){
+				glPoint3f(surfacePoint(u, v));
+				glPoint3f(surfacePoint(u, v + 1));
+				glPoint3f(surfacePoint(u + 1, v + 1));
+
+				glPoint3f(surfacePoint(u + 1, v + 1));
+				glPoint3f(surfacePoint(u + 1, v));
+				glPoint3f(surfacePoint(u, v));
+			}
+		}
+		glEnd();
+	}
+};
+
+class Cylinder : public ParamSurface{
+
+};
+
 class StorkBody : public ParamSurface{
 	CTRSpline* midline;
 	CTRSpline* outline;
@@ -414,6 +456,7 @@ public:
 	void render(){
 		StorkBody* storkbody = new StorkBody();
 		Ellipsoid* ellipsoid = new Ellipsoid(Point(-5.7, 5, 0), 1, 0.6, 0.5);
+		Cone* cone = new Cone(Point(-6.4, 5, 0), 3, 0.25);
 
 		camera->setOpenGL();
 		glMatrixMode(GL_MODELVIEW);
@@ -421,6 +464,7 @@ public:
 
 		storkbody->draw();
 		ellipsoid->draw();
+		cone->draw();
 	}
 
 	void addObject(Object* newObject){
