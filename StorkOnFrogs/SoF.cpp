@@ -412,6 +412,11 @@ public:
 			surfaceCount++;
 		}
 	}
+	void draw(){
+		for (int i = 0; i < surfaceCount; ++i){
+			surfaces[i]->draw();
+		}
+	}
 };
 
 class Camera{
@@ -448,32 +453,47 @@ public:
 	}
 
 	void render(){
-		StorkBody* storkbody = new StorkBody();
-		Ellipsoid* ellipsoid = new Ellipsoid(Point(-5.8, 5.5, 0), 1, 0.6, 0.5);
-		Cone* cone = new Cone(Point(-6.5, 5.5, 0), 3, 0.25);
-
-		Vector a = Point(0.25, -3, 0) - Point(-1.5, 0.5, 0);
-		float up = a.Length();
-		Cylinder* clu = new Cylinder(Point(-1.5, 0.5, 0), a, up, 0.2);
-		a = Point(-2, -5.25, 0) - Point(0.25, -3, 0);
-		float low = a.Length();
-		Cylinder* cld = new Cylinder(Point(0.25, -3, 0), a, low, 0.2);
-		a = Point(-1.3, -3.8, 0) - Point(-1.5, 0.5, 0);
-		Cylinder* cru = new Cylinder(Point(-1.5, 0.5, 0), a, up, 0.2);
-		a = Point(-1.2, -6.6, 0) - Point(-1.3, -3.8, 0);
-		Cylinder* crd = new Cylinder(Point(-1.3, -3.5, 0), a, low, 0.2);
-
 		camera->setOpenGL();
 		glMatrixMode(GL_MODELVIEW);
 		glTranslatef(0, 0, -20);
+		
+		for (int i = 0; i < objectCount; ++i){
+			objects[i]->draw();
+		}
+	}
 
-		storkbody->draw();
-		ellipsoid->draw();
-		cone->draw();
-		clu->draw();
-		cld->draw();
-		cru->draw();
-		crd->draw();
+	void build(){
+		Object* stork = new Object();
+
+		StorkBody* storkbody = new StorkBody();
+		Ellipsoid* head = new Ellipsoid(Point(-5.8, 5.5, 0), 1, 0.6, 0.5);
+		Cone* beak = new Cone(Point(-6.5, 5.5, 0), 3, 0.25);
+
+		Point p1, p2, p3, p4, p5;
+		p1 = Point(-1.5, 0.5, 0);
+		p2 = Point(0.25, -3, 0);
+		p3 = Point(-2, -5.25, 0);
+		Vector v1, v2, v3, v4;
+		v1 = p2 - p1;
+		v2 = p3 - p2;
+		v3 = (Point(-1.3, -3.8, 0) - Point(-1.5, 0.5, 0)).normalized();
+		v4 = (Point(-1.2, -6.6, 0) - Point(-1.3, -3.8, 0)).normalized();
+		p4 = p1 + v3*v1.Length();
+		p5 = p4 + v4*v2.Length();
+		Cylinder* clu = new Cylinder(p1, v1, v1.Length(), 0.2);
+		Cylinder* cld = new Cylinder(p2, v2, v2.Length(), 0.2);
+		Cylinder* cru = new Cylinder(p1, v3, v1.Length(), 0.2);
+		Cylinder* crd = new Cylinder(p4, v4, v2.Length(), 0.2);
+
+		stork->addSurface(storkbody);
+		stork->addSurface(head);
+		stork->addSurface(beak);
+		stork->addSurface(clu);
+		stork->addSurface(cld);
+		stork->addSurface(cru);
+		stork->addSurface(crd);
+
+		this->addObject(stork);
 	}
 
 	void addObject(Object* newObject){
@@ -497,6 +517,7 @@ void onInitialization() {
 	glViewport(0, 0, screenWidth, screenHeight);
 
 	scene = new Scene();
+	scene->build();
 }
 
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
