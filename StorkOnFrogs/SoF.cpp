@@ -63,9 +63,9 @@
 // Innentol modosithatod...
 
 #define OBJ_NUM 10
-#define U_MAX 100
 #define PI 3.14
 #define POINT_CNT 5
+#define U_MAX 360
 #define V_MAX 360
 #define EPS 0.0001
 
@@ -213,9 +213,23 @@ public:
 
 class ParamSurface{
 public:
-	virtual void draw() = 0;
 	virtual Point surfacePoint(float u, float v) = 0;
 	virtual Vector surfaceNormal(float u, float v) = 0;
+	void draw(){
+		glBegin(GL_TRIANGLES);
+		for (int u = 0; u < U_MAX; ++u){
+			for (int v = 0; v < V_MAX; ++v){
+				glPoint3f(surfacePoint(u, v));
+				glPoint3f(surfacePoint(u, v + 1));
+				glPoint3f(surfacePoint(u + 1, v + 1));
+
+				glPoint3f(surfacePoint(u + 1, v + 1));
+				glPoint3f(surfacePoint(u + 1, v));
+				glPoint3f(surfacePoint(u, v));
+			}
+		}
+		glEnd();
+	}
 };
 
 class Ellipsoid : public ParamSurface{
@@ -240,70 +254,62 @@ public:
 
 	Point surfaceNormal(float u, float v){
 		//dr/du x dr/dv
+		//u and v goes from 0 to 360
+		//u [-90, 90] v [-180, 180]
+		u = u / 2 - 90;
 		u = toRadian(u);
+		v -= 180;
 		v = toRadian(v);
 		Vector drdu = Vector(a*cos(u)*cos(v), b*cos(u)*sin(v), -c*sin(u));
 		Vector drdv = Vector(-a*sin(u)*sin(v), b*sin(u)*cos(v), 0);
 		return drdu%drdv;
 	}
-
-	void draw(){
-		glBegin(GL_TRIANGLES);
-		for (int u = -90; u <= 90; ++u){
-			for (int v = -180; v <= 180; ++v){
-				glPoint3f(surfacePoint(u, v));
-				glPoint3f(surfacePoint(u, v + 1));
-				glPoint3f(surfacePoint(u + 1, v + 1));
-
-				glPoint3f(surfacePoint(u + 1, v + 1));
-				glPoint3f(surfacePoint(u + 1, v));
-				glPoint3f(surfacePoint(u, v));
-			}
-		}
-		glEnd();
-	}
 };
 
 class Cone : public ParamSurface{
-	float h, radius;
+	float h, r;
 	Point center;
 
 public:
-	Cone(Point center, float h, float r): center(center), h(h), radius(r){}
+	Cone(Point center, float h, float r): center(center), h(h), r(r){}
 	Point surfacePoint(float u, float v){
 		//u - h
 		//v - angle to x
 		v = toRadian(v);
 		float x = -u / U_MAX*h;
-		float y = (h - fabs(x)) / h * radius*sin(v);
-		float z = (h - fabs(x)) / h * radius*cos(v);
+		float y = (h - u / U_MAX*h) / h * r*sin(v);
+		float z = (h - u / U_MAX*h) / h * r*cos(v);
 		return Point(x, y, z) + center;
 	}
 	Vector surfaceNormal(float u, float v){
 		v = toRadian(v);
-		Vector drdu = Vector(h/U_MAX, radius*sin(v)/h, radius*cos(v)/h);
-		Vector drdv = Vector(0, (h - u) / h *radius*cos(v), -(h - u) / h *radius*sin(v));
+		Vector drdu = Vector(h/U_MAX, r*sin(v)/U_MAX, r*cos(v)/U_MAX);
+		Vector drdv = Vector(0, (h - u / U_MAX*h) / h *r*cos(v), -(h - u / U_MAX*h) / h *r*sin(v));
 		return drdu%drdv;
-	}
-	void draw(){
-		glBegin(GL_TRIANGLES);
-		for (int u = 0; u < U_MAX; ++u){
-			for (int v = 0; v < V_MAX; ++v){
-				glPoint3f(surfacePoint(u, v));
-				glPoint3f(surfacePoint(u, v + 1));
-				glPoint3f(surfacePoint(u + 1, v + 1));
-
-				glPoint3f(surfacePoint(u + 1, v + 1));
-				glPoint3f(surfacePoint(u + 1, v));
-				glPoint3f(surfacePoint(u, v));
-			}
-		}
-		glEnd();
 	}
 };
 
 class Cylinder : public ParamSurface{
+	float h, r;
+	Point center;
+	Vector a;
 
+public:
+	Cylinder(Point center, Vector a, float h, float r) :
+		center(center), h(h), r(r){
+		this->a = a.normalized();
+	}
+	Point surfacePoint(float u, float v){
+		v = toRadian(v);
+		Point axisPoint = center + a*u / U_MAX*h;
+		Vector B = Vector(0, 0, 1);
+		Vector N = a%B;
+		return axisPoint + B*r*cos(v) + N*r*sin(v);
+	}
+	Point surfaceNormal(float u, float v){
+		Point axisPoint = center + a*u / U_MAX*h;
+		return surfacePoint(u, v) - axisPoint;
+	}
 };
 
 class StorkBody : public ParamSurface{
@@ -386,23 +392,11 @@ public:
 		return (n1 + n2 + n3 + n4) / valid;
 	}
 	void draw(){
-		glBegin(GL_TRIANGLES);
-		for (int u = 0; u < U_MAX; ++u){
-			for (int v = 0; v < V_MAX; ++v){
-				glPoint3f(surfacePoint(u, v));
-				glPoint3f(surfacePoint(u, v+1));
-				glPoint3f(surfacePoint(u+1, v+1));
-
-				glPoint3f(surfacePoint(u+1, v+1));
-				glPoint3f(surfacePoint(u+1, v));
-				glPoint3f(surfacePoint(u, v));
-			}
-		}
-		glEnd();
-		//glColor3f(1, 0, 0);
-		//midline->draw();
-		//outline->draw();
-		//glColor3f(1, 1, 1);
+		ParamSurface::draw();
+		glColor3f(1, 0, 0);
+		midline->draw();
+		outline->draw();
+		glColor3f(1, 1, 1);
 	}
 };
 
@@ -455,8 +449,19 @@ public:
 
 	void render(){
 		StorkBody* storkbody = new StorkBody();
-		Ellipsoid* ellipsoid = new Ellipsoid(Point(-5.7, 5, 0), 1, 0.6, 0.5);
-		Cone* cone = new Cone(Point(-6.4, 5, 0), 3, 0.25);
+		Ellipsoid* ellipsoid = new Ellipsoid(Point(-5.8, 5.5, 0), 1, 0.6, 0.5);
+		Cone* cone = new Cone(Point(-6.5, 5.5, 0), 3, 0.25);
+
+		Vector a = Point(0.25, -3, 0) - Point(-1.5, 0.5, 0);
+		float up = a.Length();
+		Cylinder* clu = new Cylinder(Point(-1.5, 0.5, 0), a, up, 0.2);
+		a = Point(-2, -5.25, 0) - Point(0.25, -3, 0);
+		float low = a.Length();
+		Cylinder* cld = new Cylinder(Point(0.25, -3, 0), a, low, 0.2);
+		a = Point(-1.3, -3.8, 0) - Point(-1.5, 0.5, 0);
+		Cylinder* cru = new Cylinder(Point(-1.5, 0.5, 0), a, up, 0.2);
+		a = Point(-1.2, -6.6, 0) - Point(-1.3, -3.8, 0);
+		Cylinder* crd = new Cylinder(Point(-1.3, -3.5, 0), a, low, 0.2);
 
 		camera->setOpenGL();
 		glMatrixMode(GL_MODELVIEW);
@@ -465,6 +470,10 @@ public:
 		storkbody->draw();
 		ellipsoid->draw();
 		cone->draw();
+		clu->draw();
+		cld->draw();
+		cru->draw();
+		crd->draw();
 	}
 
 	void addObject(Object* newObject){
