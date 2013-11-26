@@ -308,6 +308,7 @@ public:
 		Point temp = leftCorner + x * u / U_MAX * xMax + y * v / V_MAX*yMax;
 		return leftCorner + x * u / U_MAX * xMax + y * v / V_MAX*yMax;
 	}
+
 	Point surfaceNormal(float u, float v){
 		return x%y;
 	}
@@ -362,7 +363,7 @@ public:
 	}
 	Vector surfaceNormal(float u, float v){
 		v = v / V_MAX * 2 * PI;
-		Vector drdu = Vector(-h / U_MAX, -r*sin(v) / U_MAX, -r*cos(v) / U_MAX);
+		Vector drdu = Vector(h / U_MAX, r*sin(v) / U_MAX, r*cos(v) / U_MAX);
 		Vector drdv = Vector(0, (1 - u / U_MAX) *r*cos(v), -(1 - u / U_MAX) *r*sin(v));
 		return drdu%drdv;
 	}
@@ -463,19 +464,12 @@ public:
 			v4 = Vector(0, 0, 0);
 		}
 
-		Vector n1 = v2%v1;
-		Vector n2 = v3%v2;
-		Vector n3 = v4%v3;
-		Vector n4 = v1%v4;
+		Vector n1 = v1%v2;
+		Vector n2 = v2%v3;
+		Vector n3 = v3%v4;
+		Vector n4 = v4%v1;
 
 		return (n1 + n2 + n3 + n4) / valid;
-	}
-	void draw(){
-		ParamSurface::draw();
-		glColor3f(1, 0, 0);
-		midline->draw();
-		outline->draw();
-		glColor3f(1, 1, 1);
 	}
 };
 
@@ -537,7 +531,8 @@ public:
 
 		glMatrixMode(GL_MODELVIEW);
 		glTranslatef(0, 0, -35);
-		glRotatef(80, 0, 1, 0);
+		glRotatef(60, 0, 1, 0);
+		//glScalef(2, 2, 2);
 
 		//directional light
 		//should not exceed 1.0 for each component
@@ -556,7 +551,8 @@ public:
 		Cone* cone = new Cone(Point(0, 0, 0), 5, 2.5);
 		Ellipsoid* ellipsoid = new Ellipsoid(Point(0, 0, 0), 10, 10, 10);
 		Cylinder* cylinder = new Cylinder(Point(0, 0, 0), Vector(0, 1, 0), 5, 0.5);
-		Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 1, 0), 4, 4);
+		Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 1, 0), 10, 10);
+		StorkBody* body = new StorkBody();
 
 		Material* orangeRed = new Material();
 		orangeRed->setKs(1, 1, 1, 1);
@@ -566,10 +562,15 @@ public:
 		ellipsoid->setMaterial(orangeRed);
 		cylinder->setMaterial(orangeRed);
 		plane->setMaterial(orangeRed);
+		body->setMaterial(orangeRed);
 
-		ellipsoid->draw();
+		//ellipsoid->draw();
 		//ellipsoid->displaySurfaceNormals();
-
+		//cone->draw();
+		//cone->displaySurfaceNormals();
+		//body->draw();
+		//body->displaySurfaceNormals();
+		//plane->draw();
 		//testObject->addSurface(cone);
 		//testObject->addSurface(ellipsoid);
 		//testObject->addSurface(cylinder);
