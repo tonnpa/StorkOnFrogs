@@ -113,6 +113,10 @@ void glPoint3f(Point p){
 	glVertex3f(p.x, p.y, p.z);
 }
 
+void glVector3f(Vector v){
+	glNormal3f(v.x, v.y, v.z);
+}
+
 void draw2DCircle(Point point){
 	float radius = 0.2;
 	glBegin(GL_TRIANGLE_FAN);
@@ -211,24 +215,115 @@ public:
 	}
 };
 
-class ParamSurface{
+class Material{
+	float kd[4], ks[4], ka[4];
+	float shininess[];
+
 public:
+	Material(){
+		for (int i = 0; i < 3; ++i){
+			kd[i] = ks[i] = ka[i] = 0;
+		}
+		kd[3] = ks[3] = ka[3] = 1;
+		shininess[0] = 0;
+	}
+	void setKd(float r, float g, float b, float o){
+		kd[0] = r;
+		kd[1] = g;
+		kd[2] = b;
+		kd[3] = o;
+	}
+	void setKs(float r, float g, float b, float o){
+		ks[0] = r;
+		ks[1] = g;
+		ks[2] = b;
+		ks[3] = o;
+	}
+	void setKa(float r, float g, float b, float o){
+		ka[0] = r;
+		ka[1] = g;
+		ka[2] = b;
+		ka[3] = o;
+	}
+	void setOpenGL(){
+		glEnable(GL_LIGHTING);
+		glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER,GL_TRUE);
+
+		glMaterialfv(GL_FRONT, GL_AMBIENT, ka);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, ka);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, ka);
+		glMaterialfv(GL_FRONT, GL_SHININESS, shininess);
+	};
+};
+
+class Texture{
+	unsigned int texID;
+public:
+	Texture(unsigned int ID) :texID(ID){}
+	void setOpenGL(){
+		glEnable(GL_TEXTURE_2D);
+		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		glBindTexture(GL_TEXTURE_2D, texID);
+	};
+};
+
+class ParamSurface{
+	Texture* texture;
+	Material* material;
+
+	bool isTextured;
+	bool isMaterialized;
+public:
+	ParamSurface() :texture(false), isMaterialized(false){}
+
 	virtual Point surfacePoint(float u, float v) = 0;
 	virtual Vector surfaceNormal(float u, float v) = 0;
+	void setTexture(Texture* texture){
+		isTextured = true;
+		this->texture = texture;
+	}
+	void setMaterial(Material* material){
+		isMaterialized = true;
+		this->material = material;
+	}
 	void draw(){
+		if (isTextured){
+			texture->setOpenGL();
+		}
+		else
+			glDisable(GL_TEXTURE_2D);
+		if (isMaterialized){
+			material->setOpenGL();
+		}
+		else
+			glDisable(GL_LIGHTING);
+
 		glBegin(GL_TRIANGLES);
 		for (int u = 0; u < U_MAX; ++u){
 			for (int v = 0; v < V_MAX; ++v){
-				glPoint3f(surfacePoint(u, v));
-				glPoint3f(surfacePoint(u, v + 1));
-				glPoint3f(surfacePoint(u + 1, v + 1));
+				vertexOpenGL(u, v);
+				vertexOpenGL(u, v+1);
+				vertexOpenGL(u + 1, v + 1);
 
-				glPoint3f(surfacePoint(u + 1, v + 1));
-				glPoint3f(surfacePoint(u + 1, v));
-				glPoint3f(surfacePoint(u, v));
+				vertexOpenGL(u + 1, v + 1);
+				vertexOpenGL(u + 1, v);
+				vertexOpenGL(u, v);
 			}
 		}
 		glEnd();
+	}
+
+	void vertexOpenGL(float u, float v){
+		if (isTextured){
+			glTexCoord2d(u / U_MAX, v / V_MAX);
+		}
+		if (isMaterialized){
+			glVector3f(surfaceNormal(u, v));
+		}
+		glPoint3f(surfacePoint(u, v));
 	}
 };
 
@@ -474,8 +569,6 @@ public:
 
 	void render(){
 		camera->setOpenGL();
-		glMatrixMode(GL_MODELVIEW);
-		//glTranslatef(0, 0, -20);
 		
 		for (int i = 0; i < objectCount; ++i){
 			objects[i]->draw();
@@ -483,11 +576,31 @@ public:
 	}
 
 	void build(){
+		unsigned int texids;
+		glGenTextures(1, &texids);
+		glBindTexture(GL_TEXTURE_2D, texids);
+		int level = 0, border = 0, width = 3, height = 1;
+		float terrainPattern[] = { 0, 1, 0, 0.3, 1, 0.3, 0.6, 1, 0.6 };
+		glTexImage2D(GL_TEXTURE_2D, level, GL_RGB, width, height, border, GL_RGB, GL_FLOAT, terrainPattern);
+		Texture* terrainTexture = new Texture(texids);
+
+		//terrain
+		Object* terrain = new Object();
+		Plane* plane = new Plane(Point(-55, -7, -20), Vector(1, 0, 0), Vector(0, 0, 1), 100, 100);
+		plane->setTexture(terrainTexture);
+		terrain->addSurface(plane);
+		this->addObject(terrain);
+
+		//stork
 		Object* stork = new Object();
 
 		StorkBody* storkbody = new StorkBody();
 		Ellipsoid* head = new Ellipsoid(Point(-5.8, 5.5, 0), 1, 0.6, 0.5);
 		Cone* beak = new Cone(Point(-6.5, 5.5, 0), 3, 0.25);
+
+		Material* orangeRed = new Material();
+		orangeRed->setKs(1, 0.27, 0, 1);
+		beak->setMaterial(orangeRed);
 
 		Point p1, p2, p3, p4, p5;
 		p1 = Point(-1.5, 0.5, 0);
@@ -504,21 +617,29 @@ public:
 		Cylinder* cld = new Cylinder(p2, v2, v2.Length(), 0.2);
 		Cylinder* cru = new Cylinder(p1, v3, v1.Length(), 0.2);
 		Cylinder* crd = new Cylinder(p4, v4, v2.Length(), 0.2);
+		clu->setMaterial(orangeRed);
+		cld->setMaterial(orangeRed);
+		cru->setMaterial(orangeRed);
+		crd->setMaterial(orangeRed);
+		
+		unsigned int texids2;
 
-		stork->addSurface(storkbody);
-		stork->addSurface(head);
-		stork->addSurface(beak);
+		glGenTextures(1, &texids2);
+		glBindTexture(GL_TEXTURE_2D, texids2);
+		float storkPattern[] = { 1, 1, 1, 1, 1, 1, 0, 0, 0 };
+		glTexImage2D(GL_TEXTURE_2D, level, GL_RGB, width, height, border, GL_RGB, GL_FLOAT, storkPattern);
+		Texture* storkTexture = new Texture(texids2);
+		storkbody->setTexture(storkTexture);
+
 		stork->addSurface(clu);
 		stork->addSurface(cld);
 		stork->addSurface(cru);
 		stork->addSurface(crd);
+		stork->addSurface(storkbody);
+		stork->addSurface(head);
+		stork->addSurface(beak);
 
 		this->addObject(stork);
-		
-		Object* terrain = new Object();
-		Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 0, -1), 10, 10);
-		terrain->addSurface(plane);
-		this->addObject(terrain);
 	}
 
 	void addObject(Object* newObject){
@@ -532,7 +653,6 @@ public:
 const int screenWidth = 600;	// alkalmazA!s ablak felbontA!sa
 const int screenHeight = 600;
 
-
 Color image[screenWidth*screenHeight];	// egy alkalmazA!s ablaknyi kA©p
 
 Scene* scene;
@@ -540,6 +660,22 @@ Scene* scene;
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization() {
 	glViewport(0, 0, screenWidth, screenHeight);
+	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+	glShadeModel(GL_SMOOTH);
+	glEnable(GL_NORMALIZE);
+	//directional light
+	float pos[] = { 1, 1, 1, 0 };
+	float Ia[] = { 0.5, 0.5, 0.5, 1 };
+	float Id[] = { 0.5, 0.5, 0.5, 1 };
+	float Is[] = { 2, 2, 2, 1 };
+
+	glLightfv(GL_LIGHT0, GL_AMBIENT, Ia);
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, Id);
+	glLightfv(GL_LIGHT0, GL_SPECULAR, Is);
+	glLightfv(GL_LIGHT0, GL_POSITION, pos);
+	glEnable(GL_LIGHT0);
+	glEnable(GL_LIGHTING);
 
 	scene = new Scene();
 	scene->build();
@@ -547,11 +683,10 @@ void onInitialization() {
 
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
 void onDisplay() {
-	glClearColor(0.1f, 0.2f, 0.3f, 1.0f);		// torlesi szin beallitasa
+	glClearColor(0.3f, 1.0f, 1.0f, 1.0f);		// torlesi szin beallitasa
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
 	scene->render();
-
 	glutSwapBuffers();     				// Buffercsere: rajzolas vege
 }
 
