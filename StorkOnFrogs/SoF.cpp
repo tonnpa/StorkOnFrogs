@@ -1,46 +1,3 @@
-//=============================================================================================
-// Szamitogepes grafika hazi feladat keret. Ervenyes 2013-tol.          
-// A //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// sorokon beluli reszben celszeru garazdalkodni, mert a tobbit ugyis toroljuk. 
-// A beadott program csak ebben a fajlban lehet, a fajl 1 byte-os ASCII karaktereket tartalmazhat. 
-// Tilos:
-// - mast "beincludolni", illetve mas konyvtarat hasznalni
-// - faljmuveleteket vegezni (printf is fajlmuvelet!)
-// - new operatort hivni az onInitialization fA1ggvA©nyt kivA©ve, a lefoglalt adat korrekt felszabadA­tA!sa nA©lkA1l 
-// - felesleges programsorokat a beadott programban hagyni
-// - tovabbi kommenteket a beadott programba irni a forrasmegjelolest kommentjeit kiveve
-// ---------------------------------------------------------------------------------------------
-// A feladatot ANSI C++ nyelvu forditoprogrammal ellenorizzuk, a Visual Studio-hoz kepesti elteresekrol
-// es a leggyakoribb hibakrol (pl. ideiglenes objektumot nem lehet referencia tipusnak ertekul adni)
-// a hazibeado portal ad egy osszefoglalot.
-// ---------------------------------------------------------------------------------------------
-// A feladatmegoldasokban csak olyan gl/glu/glut fuggvenyek hasznalhatok, amelyek
-// 1. Az oran a feladatkiadasig elhangzottak ES (logikai AND muvelet)
-// 2. Az alabbi listaban szerepelnek:  
-// Rendering pass: glBegin, glVertex[2|3]f, glColor3f, glNormal3f, glTexCoord2f, glEnd, glDrawPixels
-// Transzformaciok: glViewport, glMatrixMode, glLoadIdentity, glMultMatrixf, gluOrtho2D, 
-// glTranslatef, glRotatef, glScalef, gluLookAt, gluPerspective, glPushMatrix, glPopMatrix,
-// Illuminacio: glMaterialfv, glMaterialfv, glMaterialf, glLightfv
-// Texturazas: glGenTextures, glBindTexture, glTexParameteri, glTexImage2D, glTexEnvi, 
-// Pipeline vezerles: glShadeModel, glEnable/Disable a kovetkezokre:
-// GL_LIGHTING, GL_NORMALIZE, GL_DEPTH_TEST, GL_CULL_FACE, GL_TEXTURE_2D, GL_BLEND, GL_LIGHT[0..7]
-//
-// NYILATKOZAT
-// ---------------------------------------------------------------------------------------------
-// Nev    : Nguyen Phan Anh
-// Neptun : BQZUZ3
-// ---------------------------------------------------------------------------------------------
-// ezennel kijelentem, hogy a feladatot magam keszitettem, es ha barmilyen segitseget igenybe vettem vagy 
-// mas szellemi termeket felhasznaltam, akkor a forrast es az atvett reszt kommentekben egyertelmuen jeloltem. 
-// A forrasmegjeloles kotelme vonatkozik az eloadas foliakat es a targy oktatoi, illetve a 
-// grafhazi doktor tanacsait kiveve barmilyen csatornan (szoban, irasban, Interneten, stb.) erkezo minden egyeb 
-// informaciora (keplet, program, algoritmus, stb.). Kijelentem, hogy a forrasmegjelolessel atvett reszeket is ertem, 
-// azok helyessegere matematikai bizonyitast tudok adni. Tisztaban vagyok azzal, hogy az atvett reszek nem szamitanak
-// a sajat kontribucioba, igy a feladat elfogadasarol a tobbi resz mennyisege es minosege alapjan szuletik dontes.  
-// Tudomasul veszem, hogy a forrasmegjeloles kotelmenek megsertese eseten a hazifeladatra adhato pontokat 
-// negativ elojellel szamoljak el es ezzel parhuzamosan eljaras is indul velem szemben.
-//=============================================================================================
-
 #include <math.h>
 #include <stdlib.h>
 
@@ -65,8 +22,8 @@
 #define OBJ_NUM 10
 #define PI 3.14
 #define POINT_CNT 5
-#define U_MAX 360
-#define V_MAX 360
+#define U_MAX 20
+#define V_MAX 20
 #define EPS 0.0001
 
 //--------------------------------------------------------
@@ -99,7 +56,7 @@ struct Vector {
 		return Vector(y*v.z - z*v.y, z*v.x - x*v.z, x*v.y - y*v.x);
 	}
 	float Length() {
-		return sqrt(x * x + y * y + z * z); 
+		return sqrt(x * x + y * y + z * z);
 	}
 	Vector normalized(){
 		float length = this->Length();
@@ -125,10 +82,6 @@ void draw2DCircle(Point point){
 		glVertex3f(point.x + radius*cos(i / 360.0 * 2 * PI), point.y + radius*sin(i / 360.0 * 2 * PI), 0);
 	}
 	glEnd();
-}
-
-float toRadian(float d){
-	return d / 180 * PI;
 }
 
 //--------------------------------------------------------
@@ -162,9 +115,9 @@ class CTRSpline{
 
 	int pointCount;
 	int functionCount;
-	
+
 public:
-	CTRSpline():pointCount(0), functionCount(POINT_CNT-1){}
+	CTRSpline() :pointCount(0), functionCount(POINT_CNT - 1){}
 
 	void addPoint(Point& p, float weight){
 		if (pointCount < POINT_CNT){
@@ -174,13 +127,13 @@ public:
 		}
 	}
 	void setup(){
-		v[0] = v[pointCount] = Vector (0,0,0);
-		for (int i = 1; i < pointCount-1; ++i){
+		v[0] = v[pointCount] = Vector(0, 0, 0);
+		for (int i = 1; i < pointCount - 1; ++i){
 			v[i] = ((p[i + 1] - p[i]) / (t[i + 1] - t[i]) + (p[i] - p[i - 1]) / (t[i] - t[i - 1]))*0.5;
 		}
 
 		for (int i = 0; i < functionCount; ++i){
-			a2[i] = (p[i + 1] - p[i]) * 3 / powf(t[i + 1] - t[i], 2.0) - (v[i+1]+v[i]*2)/(t[i+1]-t[i]);
+			a2[i] = (p[i + 1] - p[i]) * 3 / powf(t[i + 1] - t[i], 2.0) - (v[i + 1] + v[i] * 2) / (t[i + 1] - t[i]);
 			a3[i] = (p[i] - p[i + 1]) * 2 / powf(t[i + 1] - t[i], 3.0) + (v[i + 1] + v[i]) / powf(t[i + 1] - t[i], 2.0);
 		}
 	}
@@ -217,7 +170,7 @@ public:
 
 class Material{
 	float kd[4], ks[4], ka[4];
-	float shininess[];
+	float shininess[1];
 
 public:
 	Material(){
@@ -247,7 +200,7 @@ public:
 	}
 	void setOpenGL(){
 		glEnable(GL_LIGHTING);
-		glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER,GL_TRUE);
+		glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
 
 		glMaterialfv(GL_FRONT, GL_AMBIENT, ka);
 		glMaterialfv(GL_FRONT, GL_DIFFUSE, ka);
@@ -305,7 +258,7 @@ public:
 		for (int u = 0; u < U_MAX; ++u){
 			for (int v = 0; v < V_MAX; ++v){
 				vertexOpenGL(u, v);
-				vertexOpenGL(u, v+1);
+				vertexOpenGL(u, v + 1);
 				vertexOpenGL(u + 1, v + 1);
 
 				vertexOpenGL(u + 1, v + 1);
@@ -324,6 +277,19 @@ public:
 			glVector3f(surfaceNormal(u, v));
 		}
 		glPoint3f(surfacePoint(u, v));
+	}
+
+	void displaySurfaceNormals(){
+		glBegin(GL_LINES);
+		for (int u = 0; u < U_MAX; ++u){
+			for (int v = 0; v < V_MAX; ++v){
+				Point p = surfacePoint(u, v);
+				Vector n = surfaceNormal(u, v).normalized();
+				glPoint3f(p);
+				glPoint3f(p + n);
+			}
+		}
+		glEnd();
 	}
 };
 
@@ -359,22 +325,20 @@ public:
 	Point surfacePoint(float u, float v){
 		//u - angle to z axis
 		//v - angle to x axis
-		u = toRadian(u);
-		v = toRadian(v);
+		//u [-90, 90] v [-180, 180]
+		u = u / U_MAX * PI - PI/2;
+		v = v / V_MAX * 2 * PI - PI;
 		float x = a*sin(u)*cos(v);
 		float y = b*sin(u)*sin(v);
 		float z = c*cos(u);
-		return Point(x, y, z)+center;
+		return Point(x, y, z) + center;
 	}
 
 	Point surfaceNormal(float u, float v){
 		//dr/du x dr/dv
-		//u and v goes from 0 to 360
 		//u [-90, 90] v [-180, 180]
-		u = u / 2 - 90;
-		u = toRadian(u);
-		v -= 180;
-		v = toRadian(v);
+		u = u / U_MAX * PI - PI / 2;
+		v = v / V_MAX * 2 * PI - PI;
 		Vector drdu = Vector(a*cos(u)*cos(v), b*cos(u)*sin(v), -c*sin(u));
 		Vector drdv = Vector(-a*sin(u)*sin(v), b*sin(u)*cos(v), 0);
 		return drdu%drdv;
@@ -386,20 +350,20 @@ class Cone : public ParamSurface{
 	Point center;
 
 public:
-	Cone(Point center, float h, float r): center(center), h(h), r(r){}
+	Cone(Point center, float h, float r) : center(center), h(h), r(r){}
 	Point surfacePoint(float u, float v){
 		//u - h
 		//v - angle to x
-		v = toRadian(v);
+		v = v / V_MAX * 2 * PI;
 		float x = -u / U_MAX*h;
-		float y = (h - u / U_MAX*h) / h * r*sin(v);
-		float z = (h - u / U_MAX*h) / h * r*cos(v);
+		float y = (1 - u / U_MAX) * r*sin(v);
+		float z = (1 - u / U_MAX) * r*cos(v);
 		return Point(x, y, z) + center;
 	}
 	Vector surfaceNormal(float u, float v){
-		v = toRadian(v);
-		Vector drdu = Vector(h/U_MAX, r*sin(v)/U_MAX, r*cos(v)/U_MAX);
-		Vector drdv = Vector(0, (h - u / U_MAX*h) / h *r*cos(v), -(h - u / U_MAX*h) / h *r*sin(v));
+		v = v / V_MAX * 2 * PI;
+		Vector drdu = Vector(-h / U_MAX, -r*sin(v) / U_MAX, -r*cos(v) / U_MAX);
+		Vector drdv = Vector(0, (1 - u / U_MAX) *r*cos(v), -(1 - u / U_MAX) *r*sin(v));
 		return drdu%drdv;
 	}
 };
@@ -415,7 +379,7 @@ public:
 		this->a = a.normalized();
 	}
 	Point surfacePoint(float u, float v){
-		v = toRadian(v);
+		v = v / V_MAX * 2 * PI;
 		Point axisPoint = center + a*u / U_MAX*h;
 		Vector B = Vector(0, 0, 1);
 		Vector N = a%B;
@@ -461,11 +425,11 @@ public:
 	}
 	Point surfacePoint(float u, float v){
 		//r(u,v) = s(u) + B(u) r(u) cos(v) + N(u) r(u) sin (v)
-			//where s(u) - midline
-			//		r(u) - radius
-			//		N(u) = BxT
+		//where s(u) - midline
+		//                r(u) - radius
+		//                N(u) = BxT
 		//convert v to radian
-		v = toRadian(v);
+		v = v / V_MAX * 2 * PI;
 		Vector B = Vector(0, 0, 1); //z increases towards us
 		return midline->curvePoint(u) + B*radius(u)*cos(v) + normal(u)*radius(u)*sin(v);
 	}
@@ -477,7 +441,7 @@ public:
 		//v4 r(u,v+1)
 		Point r = surfacePoint(u, v);
 
-		Vector v1 = surfacePoint(u-1, v) - r;
+		Vector v1 = surfacePoint(u - 1, v) - r;
 		Vector v2 = surfacePoint(u, v - 1) - r;
 		Vector v3 = surfacePoint(u + 1, v) - r;
 		Vector v4 = surfacePoint(u, v + 1) - r;
@@ -518,7 +482,7 @@ public:
 class Object{
 	ParamSurface* surfaces[OBJ_NUM];
 	int surfaceCount;
-	
+
 public:
 	Object() :surfaceCount(0){}
 	void addSurface(ParamSurface* newSurface){
@@ -539,7 +503,7 @@ class Camera{
 	float aspect; //Specifies the aspect ratio that determines the field of view in the x direction. The aspect ratio is the ratio of x (width) to y (height).
 	float zNear; //Specifies the distance from the viewer to the near clipping plane (always positive).
 	float zFar; //Specifies the distance from the viewer to the far clipping plane (always positive).
-	
+
 	Point eye, lookAt;
 	Vector vup;
 
@@ -564,18 +528,61 @@ class Scene{
 
 public:
 	Scene() :objectCount(0){
-		camera = new Camera(Point(-5, 10, -30), Point(-5, 5, 0), Vector(0, 1, 0), 54, 1, 1, 100);
+		//camera = new Camera(Point(-5, 10, -30), Point(-5, 5, 0), Vector(0, 1, 0), 54, 1, 1, 100);
+		camera = new Camera(Point(0, 0, 0), Point(0, 0, -1), Vector(0, 1, 0), 54, 1, 1, 100);
 	}
 
 	void render(){
 		camera->setOpenGL();
-		
-		for (int i = 0; i < objectCount; ++i){
-			objects[i]->draw();
-		}
+
+		glMatrixMode(GL_MODELVIEW);
+		glTranslatef(0, 0, -35);
+		glRotatef(45, 1, 1, 0);
+
+		//directional light
+		//should not exceed 1.0 for each component
+		float pos[] = { 0, 0, 1, 1 };
+		float Ia[] = { 0.1, 0.1, 0.1, 1 };
+		float Id[] = { 0.2, 0.2, 0.2, 1 };
+		float Is[] = { 1, 1, 1, 1 };
+
+		glLightfv(GL_LIGHT0, GL_AMBIENT, Ia);
+		glLightfv(GL_LIGHT0, GL_DIFFUSE, Id);
+		glLightfv(GL_LIGHT0, GL_SPECULAR, Is);
+		glLightfv(GL_LIGHT0, GL_POSITION, pos);
+		glEnable(GL_LIGHT0);
+
+		Object* testObject = new Object();
+		Cone* cone = new Cone(Point(0, 0, 0), 5, 2.5);
+		Ellipsoid* ellipsoid = new Ellipsoid(Point(0, 0, 0), 10, 10, 10);
+		Cylinder* cylinder = new Cylinder(Point(0, 0, 0), Vector(0, 1, 0), 5, 0.5);
+		Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 1, 0), 4, 4);
+
+		Material* orangeRed = new Material();
+		orangeRed->setKs(1, 1, 1, 1);
+		orangeRed->setKd(1, 0.27, 0, 1);
+		orangeRed->setKa(0.8, 0.27, 0, 1);
+		cone->setMaterial(orangeRed);
+		ellipsoid->setMaterial(orangeRed);
+		cylinder->setMaterial(orangeRed);
+		plane->setMaterial(orangeRed);
+
+		ellipsoid->draw();
+		//ellipsoid->displaySurfaceNormals();
+
+		//testObject->addSurface(cone);
+		//testObject->addSurface(ellipsoid);
+		//testObject->addSurface(cylinder);
+		//testObject->addSurface(plane);
+		//this->addObject(testObject);
+
+		//for (int i = 0; i < objectCount; ++i){
+		//	objects[i]->draw();
+		//}
 	}
 
 	void build(){
+		/*
 		unsigned int texids;
 		glGenTextures(1, &texids);
 		glBindTexture(GL_TEXTURE_2D, texids);
@@ -621,7 +628,7 @@ public:
 		cld->setMaterial(orangeRed);
 		cru->setMaterial(orangeRed);
 		crd->setMaterial(orangeRed);
-		
+
 		unsigned int texids2;
 
 		glGenTextures(1, &texids2);
@@ -640,6 +647,7 @@ public:
 		stork->addSurface(beak);
 
 		this->addObject(stork);
+		*/
 	}
 
 	void addObject(Object* newObject){
@@ -650,10 +658,10 @@ public:
 	}
 };
 
-const int screenWidth = 600;	// alkalmazA!s ablak felbontA!sa
+const int screenWidth = 600;        // alkalmazA!s ablak felbontA!sa
 const int screenHeight = 600;
 
-Color image[screenWidth*screenHeight];	// egy alkalmazA!s ablaknyi kA©p
+Color image[screenWidth*screenHeight];        // egy alkalmazA!s ablaknyi kA©p
 
 Scene* scene;
 
@@ -683,11 +691,11 @@ void onInitialization() {
 
 // Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
 void onDisplay() {
-	glClearColor(0.3f, 1.0f, 1.0f, 1.0f);		// torlesi szin beallitasa
+	glClearColor(0.1f, 0.1f, 0.2f, 1.0f);                // torlesi szin beallitasa
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
 	scene->render();
-	glutSwapBuffers();     				// Buffercsere: rajzolas vege
+	glutSwapBuffers();                                     // Buffercsere: rajzolas vege
 }
 
 // Billentyuzet esemenyeket lekezelo fuggveny (lenyomas)
@@ -705,28 +713,28 @@ void onIdle() {}
 
 // A C++ program belepesi pontja, a main fuggvenyt mar nem szabad bantani
 int main(int argc, char **argv) {
-	glutInit(&argc, argv); 				// GLUT inicializalasa
-	glutInitWindowSize(600, 600);			// Alkalmazas ablak kezdeti merete 600x600 pixel 
-	glutInitWindowPosition(100, 100);			// Az elozo alkalmazas ablakhoz kepest hol tunik fel
-	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);	// 8 bites R,G,B,A + dupla buffer + melyseg buffer
+	glutInit(&argc, argv);                                 // GLUT inicializalasa
+	glutInitWindowSize(600, 600);                        // Alkalmazas ablak kezdeti merete 600x600 pixel 
+	glutInitWindowPosition(100, 100);                        // Az elozo alkalmazas ablakhoz kepest hol tunik fel
+	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);        // 8 bites R,G,B,A + dupla buffer + melyseg buffer
 
-	glutCreateWindow("Grafika hazi feladat");		// Alkalmazas ablak megszuletik es megjelenik a kepernyon
+	glutCreateWindow("Grafika hazi feladat");                // Alkalmazas ablak megszuletik es megjelenik a kepernyon
 
-	glMatrixMode(GL_MODELVIEW);				// A MODELVIEW transzformaciot egysegmatrixra inicializaljuk
+	glMatrixMode(GL_MODELVIEW);                                // A MODELVIEW transzformaciot egysegmatrixra inicializaljuk
 	glLoadIdentity();
-	glMatrixMode(GL_PROJECTION);			// A PROJECTION transzformaciot egysegmatrixra inicializaljuk
+	glMatrixMode(GL_PROJECTION);                        // A PROJECTION transzformaciot egysegmatrixra inicializaljuk
 	glLoadIdentity();
 
-	onInitialization();					// Az altalad irt inicializalast lefuttatjuk
+	onInitialization();                                        // Az altalad irt inicializalast lefuttatjuk
 
-	glutDisplayFunc(onDisplay);				// Esemenykezelok regisztralasa
+	glutDisplayFunc(onDisplay);                                // Esemenykezelok regisztralasa
 	glutMouseFunc(onMouse);
 	glutIdleFunc(onIdle);
 	glutKeyboardFunc(onKeyboard);
 	glutKeyboardUpFunc(onKeyboardUp);
 	glutMotionFunc(onMouseMotion);
 
-	glutMainLoop();					// Esemenykezelo hurok
+	glutMainLoop();                                        // Esemenykezelo hurok
 
 	return 0;
 }
