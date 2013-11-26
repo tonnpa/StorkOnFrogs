@@ -326,8 +326,8 @@ public:
 		//u - angle to z axis
 		//v - angle to x axis
 		//u [-90, 90] v [-180, 180]
-		u = u / U_MAX * PI - PI/2;
-		v = v / V_MAX * 2 * PI - PI;
+		u = u / U_MAX * PI;
+		v = v / V_MAX * 2 * PI;
 		float x = a*sin(u)*cos(v);
 		float y = b*sin(u)*sin(v);
 		float z = c*cos(u);
@@ -337,8 +337,8 @@ public:
 	Point surfaceNormal(float u, float v){
 		//dr/du x dr/dv
 		//u [-90, 90] v [-180, 180]
-		u = u / U_MAX * PI - PI / 2;
-		v = v / V_MAX * 2 * PI - PI;
+		u = u / U_MAX * PI;
+		v = v / V_MAX * 2 * PI;
 		Vector drdu = Vector(a*cos(u)*cos(v), b*cos(u)*sin(v), -c*sin(u));
 		Vector drdv = Vector(-a*sin(u)*sin(v), b*sin(u)*cos(v), 0);
 		return drdu%drdv;
@@ -537,14 +537,14 @@ public:
 
 		glMatrixMode(GL_MODELVIEW);
 		glTranslatef(0, 0, -35);
-		glRotatef(45, 1, 1, 0);
+		glRotatef(80, 0, 1, 0);
 
 		//directional light
 		//should not exceed 1.0 for each component
-		float pos[] = { 0, 0, 1, 1 };
+		float pos[] = { 0, 0, 1, 0 };
 		float Ia[] = { 0.1, 0.1, 0.1, 1 };
 		float Id[] = { 0.2, 0.2, 0.2, 1 };
-		float Is[] = { 1, 1, 1, 1 };
+		float Is[] = { 3, 1, 1, 1 };
 
 		glLightfv(GL_LIGHT0, GL_AMBIENT, Ia);
 		glLightfv(GL_LIGHT0, GL_DIFFUSE, Id);
