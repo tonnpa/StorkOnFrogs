@@ -25,7 +25,7 @@
 #define U_MAX 20
 #define V_MAX 20
 #define EPS 0.0001
-#define DEBUGGING 1
+#define DEBUGGING 0
 
 //--------------------------------------------------------
 // 3D Vektor
@@ -205,11 +205,12 @@ public:
 		kd[2] = b;
 		kd[3] = o;
 	}
-	void setKs(float r, float g, float b, float o){
+	void setKs(float r, float g, float b, float o, float shine){
 		ks[0] = r;
 		ks[1] = g;
 		ks[2] = b;
 		ks[3] = o;
+		shininess[0] = shine;
 	}
 	void setKa(float r, float g, float b, float o){
 		ka[0] = r;
@@ -228,13 +229,16 @@ public:
 	};
 };
 
+Material* orangeRed;
+Material* frogGreen;
+
 class Texture{
 	unsigned int texID;
 public:
 	Texture(unsigned int ID) :texID(ID){}
 	void setOpenGL(){
 		glEnable(GL_TEXTURE_2D);
-		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -580,11 +584,6 @@ public:
 			Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 1, 0), 10, 10);
 			StorkBody* body = new StorkBody();
 
-			Material* orangeRed = new Material();
-			orangeRed->setKs(1, 1, 1, 1);
-			orangeRed->setKd(0.8, 0.27, 0, 1);
-			orangeRed->setKa(0.2, 0.1, 0, 1);
-
 			cone->setMaterial(orangeRed);
 			ellipsoid->setMaterial(orangeRed);
 			cylinder->setMaterial(orangeRed);
@@ -624,44 +623,35 @@ public:
 
 				testObject->draw();
 			default:
-				Material* frogGreen = new Material();
-				frogGreen->setKa(0.7, 1, 0.4, 1);
-				frogGreen->setKs(0.2, 1, 0.2, 1);
-				frogGreen->setKd(0.7, 1, 0.4, 1);
-
-				Ellipsoid* e1 = new Ellipsoid(Point(-2, 1, 0), 5.5, 2.75, 3);
-				Ellipsoid* e2 = new Ellipsoid(Point(3.75, 1.5, 0), 2, 2, 2.5);
-				Vector fl = Point(0, -5, -1) - Point(-2.25, 0.75, -1);
-				Cylinder* c1 = new Cylinder(Point(0, 0.75, -1), fl, fl.Length()*3/4, 1);
-				Cylinder* c2 = new Cylinder(Point(0, 0.75, 1), fl, fl.Length()*3/4, 1);
-				e1->setMaterial(frogGreen);
-				e2->setMaterial(frogGreen);
-				c1->setMaterial(frogGreen);
-				c2->setMaterial(frogGreen);
-
-				Object* frog = new Object();
-				frog->addSurface(e1);
-				frog->addSurface(e2);
-				frog->addSurface(c1);
-				frog->addSurface(c2);
-				frog->scale(Vector(2, 2, 2));
-				frog->rotate(45, Vector(0, 1, 0));
-				frog->translate(Vector(0, 0, -30));
-
-				frog->draw();
 				break;
 			}
 		}
 		else{
 			glMatrixMode(GL_MODELVIEW);
 			glTranslatef(0, 0, -35);
-
 			glLightfv(GL_LIGHT0, GL_POSITION, pos);
 			glEnable(GL_LIGHT0);
 			for (int i = 0; i < objectCount; ++i){
 				objects[i]->draw();
 			}
 		}
+	}
+
+	void createFrog(Object* frog){
+		Ellipsoid* frogBody = new Ellipsoid(Point(-2, 1, 0), 5.5, 2.75, 3);
+		Ellipsoid* frogHead = new Ellipsoid(Point(3.75, 1.5, 0), 2, 2, 2.5);
+		Vector fl = Point(0, -5, -1) - Point(-2.25, 0.75, -1);
+		Cylinder* frontLegR = new Cylinder(Point(0, 0.75, -1), fl, fl.Length() * 3 / 4, 1);
+		Cylinder* frontLegL = new Cylinder(Point(0, 0.75, 1), fl, fl.Length() * 3 / 4, 1);
+		frogBody->setMaterial(frogGreen);
+		frogHead->setMaterial(frogGreen);
+		frontLegR->setMaterial(frogGreen);
+		frontLegL->setMaterial(frogGreen);
+
+		frog->addSurface(frogBody);
+		frog->addSurface(frogHead);
+		frog->addSurface(frontLegR);
+		frog->addSurface(frontLegL);
 	}
 
 	void build(){
@@ -688,7 +678,7 @@ public:
 		Cone* beak = new Cone(Point(-6.5, 5.5, 0), 3, 0.25);
 
 		Material* orangeRed = new Material();
-		orangeRed->setKs(1, 1, 1, 1);
+		orangeRed->setKs(1, 1, 1, 1, 4);
 		orangeRed->setKd(0.8, 0.27, 0, 1);
 		orangeRed->setKa(0.2, 0.1, 0, 1);
 		beak->setMaterial(orangeRed);
@@ -729,6 +719,21 @@ public:
 		stork->addSurface(beak);
 
 		this->addObject(stork);
+
+		//frogs
+		Object* frog = new Object();
+		createFrog(frog);
+		frog->scale(Vector(0.3, 0.3, 0.3));
+		frog->rotate(-45, Vector(0, 1, 0));
+		frog->translate(Vector(-8, -6, 3));
+		this->addObject(frog);
+		
+		Object* frog2 = new Object();
+		createFrog(frog2);
+		frog2->scale(Vector(0.3, 0.3, 0.3));
+		frog2->rotate(-135, Vector(0, 1, 0));
+		frog2->translate(Vector(4, -6, 10));
+		this->addObject(frog2);
 	}
 
 	void addObject(Object* newObject){
@@ -748,16 +753,24 @@ Scene* scene;
 
 // Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization() {
+	orangeRed = new Material();
+	orangeRed->setKs(0.8, 0.2, 0, 1, 4);
+	orangeRed->setKd(0.8, 0.27, 0, 1);
+	orangeRed->setKa(0.2, 0.1, 0, 1);
+	frogGreen = new Material();
+	frogGreen->setKa(0, 0.4, 0, 1);
+	frogGreen->setKs(1, 1, 1, 1, 20);
+	frogGreen->setKd(0.7, 1, 0.4, 1);
+
 	glViewport(0, 0, screenWidth, screenHeight);
 	glEnable(GL_DEPTH_TEST);
 	glDisable(GL_CULL_FACE);
 	glShadeModel(GL_SMOOTH);
 	glEnable(GL_NORMALIZE);
 	//directional light
-	//should not exceed 1.0 for each component
-	float Ia[] = { 0.1, 0.1, 0.1, 1 };
-	float Id[] = { 0.2, 0.2, 0.2, 1 };
-	float Is[] = { 3, 1, 1, 1 };
+	float Ia[] = { 0, 0, 0, 1 };
+	float Id[] = { 0.3, 0.3, 0.3, 1 };
+	float Is[] = { 2, 2, 2, 1 };
 
 	glLightfv(GL_LIGHT0, GL_AMBIENT, Ia);
 	glLightfv(GL_LIGHT0, GL_DIFFUSE, Id);
