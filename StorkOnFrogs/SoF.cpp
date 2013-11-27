@@ -25,6 +25,7 @@
 #define U_MAX 20
 #define V_MAX 20
 #define EPS 0.0001
+#define DEBUGGING 0
 
 //--------------------------------------------------------
 // 3D Vektor
@@ -529,61 +530,81 @@ public:
 	void render(){
 		camera->setOpenGL();
 
-		glMatrixMode(GL_MODELVIEW);
-		glTranslatef(0, 0, -35);
-		glRotatef(60, 0, 1, 0);
-		//glScalef(2, 2, 2);
-
-		//directional light
-		//should not exceed 1.0 for each component
 		float pos[] = { 0, 0, 1, 0 };
-		float Ia[] = { 0.1, 0.1, 0.1, 1 };
-		float Id[] = { 0.2, 0.2, 0.2, 1 };
-		float Is[] = { 3, 1, 1, 1 };
 
-		glLightfv(GL_LIGHT0, GL_AMBIENT, Ia);
-		glLightfv(GL_LIGHT0, GL_DIFFUSE, Id);
-		glLightfv(GL_LIGHT0, GL_SPECULAR, Is);
-		glLightfv(GL_LIGHT0, GL_POSITION, pos);
-		glEnable(GL_LIGHT0);
+		if (DEBUGGING){
+			glMatrixMode(GL_MODELVIEW);
+			glTranslatef(0, 0, -35);
+			glRotatef(80, 0, 1, 0);
+			//glScalef(2, 2, 2);
+			glLightfv(GL_LIGHT0, GL_POSITION, pos);
+			glEnable(GL_LIGHT0);
 
-		Object* testObject = new Object();
-		Cone* cone = new Cone(Point(0, 0, 0), 5, 2.5);
-		Ellipsoid* ellipsoid = new Ellipsoid(Point(0, 0, 0), 10, 10, 10);
-		Cylinder* cylinder = new Cylinder(Point(0, 0, 0), Vector(0, 1, 0), 5, 0.5);
-		Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 1, 0), 10, 10);
-		StorkBody* body = new StorkBody();
+			Object* testObject = new Object();
+			Cone* cone = new Cone(Point(0, 0, 0), 5, 2.5);
+			Ellipsoid* ellipsoid = new Ellipsoid(Point(0, 0, 0), 10, 10, 10);
+			Cylinder* cylinder = new Cylinder(Point(0, 0, 0), Vector(0, 1, 0), 5, 0.5);
+			Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 1, 0), 10, 10);
+			StorkBody* body = new StorkBody();
 
-		Material* orangeRed = new Material();
-		orangeRed->setKs(1, 1, 1, 1);
-		orangeRed->setKd(1, 0.27, 0, 1);
-		orangeRed->setKa(0.8, 0.27, 0, 1);
-		cone->setMaterial(orangeRed);
-		ellipsoid->setMaterial(orangeRed);
-		cylinder->setMaterial(orangeRed);
-		plane->setMaterial(orangeRed);
-		body->setMaterial(orangeRed);
+			Material* orangeRed = new Material();
+			orangeRed->setKs(1, 1, 1, 1);
+			orangeRed->setKd(0.8, 0.27, 0, 1);
+			orangeRed->setKa(0.2, 0.1, 0, 1);
 
-		//ellipsoid->draw();
-		//ellipsoid->displaySurfaceNormals();
-		//cone->draw();
-		//cone->displaySurfaceNormals();
-		//body->draw();
-		//body->displaySurfaceNormals();
-		//plane->draw();
-		//testObject->addSurface(cone);
-		//testObject->addSurface(ellipsoid);
-		//testObject->addSurface(cylinder);
-		//testObject->addSurface(plane);
-		//this->addObject(testObject);
+			cone->setMaterial(orangeRed);
+			ellipsoid->setMaterial(orangeRed);
+			cylinder->setMaterial(orangeRed);
+			plane->setMaterial(orangeRed);
+			body->setMaterial(orangeRed);
 
-		//for (int i = 0; i < objectCount; ++i){
-		//	objects[i]->draw();
-		//}
+			int testMode = 4;
+			bool displayNormal = false;
+
+			switch (testMode){
+			case 0:
+				if (displayNormal)
+					ellipsoid->displaySurfaceNormals();
+				ellipsoid->draw();
+				break;
+			case 1:
+				if (displayNormal)
+					cone->displaySurfaceNormals();
+				cone->draw();
+				break;
+			case 2:
+				if (displayNormal)
+					body->displaySurfaceNormals();
+				body->draw();
+				break;
+			case 3:
+				if (displayNormal)
+					plane->displaySurfaceNormals();
+				plane->draw();
+				break;
+			case 4:
+				testObject->addSurface(cone);
+				testObject->addSurface(ellipsoid);
+				testObject->addSurface(cylinder);
+				testObject->addSurface(plane);
+				testObject->addSurface(body);
+
+				testObject->draw();
+			}
+		}
+		else{
+			glMatrixMode(GL_MODELVIEW);
+			glTranslatef(0, 0, -35);
+
+			glLightfv(GL_LIGHT0, GL_POSITION, pos);
+			glEnable(GL_LIGHT0);
+			for (int i = 0; i < objectCount; ++i){
+				objects[i]->draw();
+			}
+		}
 	}
 
 	void build(){
-		/*
 		unsigned int texids;
 		glGenTextures(1, &texids);
 		glBindTexture(GL_TEXTURE_2D, texids);
@@ -607,7 +628,9 @@ public:
 		Cone* beak = new Cone(Point(-6.5, 5.5, 0), 3, 0.25);
 
 		Material* orangeRed = new Material();
-		orangeRed->setKs(1, 0.27, 0, 1);
+		orangeRed->setKs(1, 1, 1, 1);
+		orangeRed->setKd(0.8, 0.27, 0, 1);
+		orangeRed->setKa(0.2, 0.1, 0, 1);
 		beak->setMaterial(orangeRed);
 
 		Point p1, p2, p3, p4, p5;
@@ -648,7 +671,6 @@ public:
 		stork->addSurface(beak);
 
 		this->addObject(stork);
-		*/
 	}
 
 	void addObject(Object* newObject){
@@ -674,17 +696,14 @@ void onInitialization() {
 	glShadeModel(GL_SMOOTH);
 	glEnable(GL_NORMALIZE);
 	//directional light
-	float pos[] = { 1, 1, 1, 0 };
-	float Ia[] = { 0.5, 0.5, 0.5, 1 };
-	float Id[] = { 0.5, 0.5, 0.5, 1 };
-	float Is[] = { 2, 2, 2, 1 };
+	//should not exceed 1.0 for each component
+	float Ia[] = { 0.1, 0.1, 0.1, 1 };
+	float Id[] = { 0.2, 0.2, 0.2, 1 };
+	float Is[] = { 3, 1, 1, 1 };
 
 	glLightfv(GL_LIGHT0, GL_AMBIENT, Ia);
 	glLightfv(GL_LIGHT0, GL_DIFFUSE, Id);
 	glLightfv(GL_LIGHT0, GL_SPECULAR, Is);
-	glLightfv(GL_LIGHT0, GL_POSITION, pos);
-	glEnable(GL_LIGHT0);
-	glEnable(GL_LIGHTING);
 
 	scene = new Scene();
 	scene->build();
