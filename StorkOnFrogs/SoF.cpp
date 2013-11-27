@@ -25,7 +25,7 @@
 #define U_MAX 20
 #define V_MAX 20
 #define EPS 0.0001
-#define DEBUGGING 0
+#define DEBUGGING 1
 
 //--------------------------------------------------------
 // 3D Vektor
@@ -105,6 +105,24 @@ struct Color {
 	}
 	Color operator+(const Color& c) {
 		return Color(r + c.r, g + c.g, b + c.b);
+	}
+};
+
+struct ModelTransformation{
+	float phi;
+	Vector scale, rotate, translate;
+
+	ModelTransformation(){
+		phi = 0;
+		scale = Vector(1, 1, 1);
+		rotate = Vector(0, 1, 0);
+		translate = Vector(0, 0, 0);
+	}
+
+	void setOpenGL(){
+		glTranslatef(translate.x, translate.y, translate.z);
+		glRotatef(phi, rotate.x, rotate.y, rotate.z);
+		glScalef(scale.x, scale.y, scale.z);
 	}
 };
 
@@ -477,9 +495,22 @@ public:
 class Object{
 	ParamSurface* surfaces[OBJ_NUM];
 	int surfaceCount;
+	ModelTransformation transformation;
 
 public:
-	Object() :surfaceCount(0){}
+	Object() :surfaceCount(0){
+		transformation = ModelTransformation();
+	}
+	void translate(Vector& v){
+		transformation.translate = v;
+	}
+	void rotate(float phi, Vector axis){
+		transformation.phi = phi;
+		transformation.rotate = axis;
+	}
+	void scale(Vector& v){
+		transformation.scale = v;
+	}
 	void addSurface(ParamSurface* newSurface){
 		if (surfaceCount < OBJ_NUM){
 			surfaces[surfaceCount] = newSurface;
@@ -487,9 +518,12 @@ public:
 		}
 	}
 	void draw(){
+		glPushMatrix();
+		transformation.setOpenGL();
 		for (int i = 0; i < surfaceCount; ++i){
 			surfaces[i]->draw();
 		}
+		glPopMatrix();
 	}
 };
 
@@ -535,8 +569,7 @@ public:
 		if (DEBUGGING){
 			glMatrixMode(GL_MODELVIEW);
 			glTranslatef(0, 0, -35);
-			glRotatef(80, 0, 1, 0);
-			//glScalef(2, 2, 2);
+			//glRotatef(45, 1, 1, 0);
 			glLightfv(GL_LIGHT0, GL_POSITION, pos);
 			glEnable(GL_LIGHT0);
 
@@ -558,7 +591,7 @@ public:
 			plane->setMaterial(orangeRed);
 			body->setMaterial(orangeRed);
 
-			int testMode = 4;
+			int testMode = 10;
 			bool displayNormal = false;
 
 			switch (testMode){
@@ -590,6 +623,33 @@ public:
 				testObject->addSurface(body);
 
 				testObject->draw();
+			default:
+				Material* frogGreen = new Material();
+				frogGreen->setKa(0.7, 1, 0.4, 1);
+				frogGreen->setKs(0.2, 1, 0.2, 1);
+				frogGreen->setKd(0.7, 1, 0.4, 1);
+
+				Ellipsoid* e1 = new Ellipsoid(Point(-2, 1, 0), 5.5, 2.75, 3);
+				Ellipsoid* e2 = new Ellipsoid(Point(3.75, 1.5, 0), 2, 2, 2.5);
+				Vector fl = Point(0, -5, -1) - Point(-2.25, 0.75, -1);
+				Cylinder* c1 = new Cylinder(Point(0, 0.75, -1), fl, fl.Length()*3/4, 1);
+				Cylinder* c2 = new Cylinder(Point(0, 0.75, 1), fl, fl.Length()*3/4, 1);
+				e1->setMaterial(frogGreen);
+				e2->setMaterial(frogGreen);
+				c1->setMaterial(frogGreen);
+				c2->setMaterial(frogGreen);
+
+				Object* frog = new Object();
+				frog->addSurface(e1);
+				frog->addSurface(e2);
+				frog->addSurface(c1);
+				frog->addSurface(c2);
+				frog->scale(Vector(2, 2, 2));
+				frog->rotate(45, Vector(0, 1, 0));
+				frog->translate(Vector(0, 0, -30));
+
+				frog->draw();
+				break;
 			}
 		}
 		else{
@@ -653,13 +713,11 @@ public:
 		cru->setMaterial(orangeRed);
 		crd->setMaterial(orangeRed);
 
-		unsigned int texids2;
-
-		glGenTextures(1, &texids2);
-		glBindTexture(GL_TEXTURE_2D, texids2);
+		glGenTextures(1, &texids);
+		glBindTexture(GL_TEXTURE_2D, texids);
 		float storkPattern[] = { 1, 1, 1, 1, 1, 1, 0, 0, 0 };
 		glTexImage2D(GL_TEXTURE_2D, level, GL_RGB, width, height, border, GL_RGB, GL_FLOAT, storkPattern);
-		Texture* storkTexture = new Texture(texids2);
+		Texture* storkTexture = new Texture(texids);
 		storkbody->setTexture(storkTexture);
 
 		stork->addSurface(clu);
@@ -715,6 +773,7 @@ void onDisplay() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
 
 	scene->render();
+
 	glutSwapBuffers();                                     // Buffercsere: rajzolas vege
 }
 
