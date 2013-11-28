@@ -1,3 +1,46 @@
+//=============================================================================================
+// Szamitogepes grafika hazi feladat keret. Ervenyes 2013-tol.          
+// A //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// sorokon beluli reszben celszeru garazdalkodni, mert a tobbit ugyis toroljuk. 
+// A beadott program csak ebben a fajlban lehet, a fajl 1 byte-os ASCII karaktereket tartalmazhat. 
+// Tilos:
+// - mast "beincludolni", illetve mas konyvtarat hasznalni
+// - faljmuveleteket vegezni (printf is fajlmuvelet!)
+// - new operatort hivni az onInitialization fA1ggvA©nyt kivA©ve, a lefoglalt adat korrekt felszabadA­tA!sa nA©lkA1l 
+// - felesleges programsorokat a beadott programban hagyni
+// - tovabbi kommenteket a beadott programba irni a forrasmegjelolest kommentjeit kiveve
+// ---------------------------------------------------------------------------------------------
+// A feladatot ANSI C++ nyelvu forditoprogrammal ellenorizzuk, a Visual Studio-hoz kepesti elteresekrol
+// es a leggyakoribb hibakrol (pl. ideiglenes objektumot nem lehet referencia tipusnak ertekul adni)
+// a hazibeado portal ad egy osszefoglalot.
+// ---------------------------------------------------------------------------------------------
+// A feladatmegoldasokban csak olyan gl/glu/glut fuggvenyek hasznalhatok, amelyek
+// 1. Az oran a feladatkiadasig elhangzottak ES (logikai AND muvelet)
+// 2. Az alabbi listaban szerepelnek:  
+// Rendering pass: glBegin, glVertex[2|3]f, glColor3f, glNormal3f, glTexCoord2f, glEnd, glDrawPixels
+// Transzformaciok: glViewport, glMatrixMode, glLoadIdentity, glMultMatrixf, gluOrtho2D, 
+// glTranslatef, glRotatef, glScalef, gluLookAt, gluPerspective, glPushMatrix, glPopMatrix,
+// Illuminacio: glMaterialfv, glMaterialfv, glMaterialf, glLightfv
+// Texturazas: glGenTextures, glBindTexture, glTexParameteri, glTexImage2D, glTexEnvi, 
+// Pipeline vezerles: glShadeModel, glEnable/Disable a kovetkezokre:
+// GL_LIGHTING, GL_NORMALIZE, GL_DEPTH_TEST, GL_CULL_FACE, GL_TEXTURE_2D, GL_BLEND, GL_LIGHT[0..7]
+//
+// NYILATKOZAT
+// ---------------------------------------------------------------------------------------------
+// Nev    : Nguyen Phan Anh
+// Neptun : BQZUZ3
+// ---------------------------------------------------------------------------------------------
+// ezennel kijelentem, hogy a feladatot magam keszitettem, es ha barmilyen segitseget igenybe vettem vagy 
+// mas szellemi termeket felhasznaltam, akkor a forrast es az atvett reszt kommentekben egyertelmuen jeloltem. 
+// A forrasmegjeloles kotelme vonatkozik az eloadas foliakat es a targy oktatoi, illetve a 
+// grafhazi doktor tanacsait kiveve barmilyen csatornan (szoban, irasban, Interneten, stb.) erkezo minden egyeb 
+// informaciora (keplet, program, algoritmus, stb.). Kijelentem, hogy a forrasmegjelolessel atvett reszeket is ertem, 
+// azok helyessegere matematikai bizonyitast tudok adni. Tisztaban vagyok azzal, hogy az atvett reszek nem szamitanak
+// a sajat kontribucioba, igy a feladat elfogadasarol a tobbi resz mennyisege es minosege alapjan szuletik dontes.  
+// Tudomasul veszem, hogy a forrasmegjeloles kotelmenek megsertese eseten a hazifeladatra adhato pontokat 
+// negativ elojellel szamoljak el es ezzel parhuzamosan eljaras is indul velem szemben.
+//=============================================================================================
+
 #include <math.h>
 #include <stdlib.h>
 
@@ -25,7 +68,7 @@
 #define U_MAX 20
 #define V_MAX 20
 #define EPS 0.0001
-#define DEBUGGING 1
+#define DEBUGGING 0
 
 //--------------------------------------------------------
 // 3D Vektor
@@ -233,6 +276,7 @@ Material* orangeRed;
 Material* frogGreen;
 Material* storkWhite;
 Material* fireflyShine;
+Material* terrainShade;
 
 class Texture{
 	unsigned int texID;
@@ -563,26 +607,28 @@ class Scene{
 
 public:
 	Scene() :objectCount(0){
-		//camera = new Camera(Point(-5, 10, -30), Point(-5, 5, 0), Vector(0, 1, 0), 54, 1, 1, 100);
 		camera = new Camera(Point(0, 0, 0), Point(0, 0, -1), Vector(0, 1, 0), 54, 1, 1, 100);
 	}
 
 	void render(){
 		camera->setOpenGL();
 
-		float pos[] = { 0, 0, 1, 0 };
-		float positionalPos[] = { 8.5, 8.5, 0, 1 };
+		float pos[] = { 0, -1, 1, 0 };
+		float positionalPos[] = { 7.5, 7.5, 0, 1 };
 
 		if (DEBUGGING){
 			glMatrixMode(GL_MODELVIEW);
 			glTranslatef(0, 0, -35);
-			//glRotatef(45, 1, 1, 0);
-			glLightfv(GL_LIGHT0, GL_POSITION, pos);
-			glEnable(GL_LIGHT0);
+			glRotatef(180, 0, 1, 0);
+			//glLightfv(GL_LIGHT0, GL_POSITION, pos);
+			//glEnable(GL_LIGHT0);
+			float debuggingPosition[] = { 0, 0, -5, 1 };
+			glLightfv(GL_LIGHT1, GL_POSITION, debuggingPosition);
+			glEnable(GL_LIGHT1);
 
 			Object* testObject = new Object();
 			Cone* cone = new Cone(Point(0, 0, 0), 5, 2.5);
-			Ellipsoid* ellipsoid = new Ellipsoid(Point(0, 0, 0), 10, 10, 10);
+			Ellipsoid* ellipsoid = new Ellipsoid(Point(0, 0, 0), 2, 2, 2);
 			Cylinder* cylinder = new Cylinder(Point(0, 0, 0), Vector(0, 1, 0), 5, 0.5);
 			Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 1, 0), 10, 10);
 			StorkBody* body = new StorkBody();
@@ -593,7 +639,7 @@ public:
 			plane->setMaterial(orangeRed);
 			body->setMaterial(orangeRed);
 
-			int testMode = 10;
+			int testMode = 0;
 			bool displayNormal = false;
 
 			switch (testMode){
@@ -631,9 +677,7 @@ public:
 		}
 		else{
 			glLightfv(GL_LIGHT0, GL_POSITION, pos);
-			glEnable(GL_LIGHT0);
 			glLightfv(GL_LIGHT1, GL_POSITION, positionalPos);
-			glEnable(GL_LIGHT1);
 
 			for (int i = 0; i < objectCount; ++i){
 				objects[i]->draw();
@@ -663,16 +707,20 @@ public:
 		glGenTextures(1, &texids);
 		glBindTexture(GL_TEXTURE_2D, texids);
 		int level = 0, border = 0, width = 3, height = 1;
-		float terrainPattern[] = { 0, 1, 0, 0.3, 1, 0.3, 0.6, 1, 0.6 };
+		//float terrainPattern[] = { 0, 1, 0, 0.3, 1, 0.3, 0.6, 1, 0.6 };
+		//float terrainPattern[] = { 0.54, 0.27, 0.07, 0.62, 0.31, 0.16, 0.82, 0.41, 0.16 };
+		float terrainPattern[] = { 0.54, 0.27, 0.07, 0, 0, 0, 0.82, 0.41, 0.16 };
 		glTexImage2D(GL_TEXTURE_2D, level, GL_RGB, width, height, border, GL_RGB, GL_FLOAT, terrainPattern);
 		Texture* terrainTexture = new Texture(texids);
 
 		//terrain
 		Object* terrain = new Object();
-		Plane* plane = new Plane(Point(-55, -7, -20), Vector(1, 0, 0), Vector(0, 0, 1), 100, 100);
+		//Plane* plane = new Plane(Point(-55, -7, -20), Vector(1, 0, 0), Vector(0, 0, 1), 100, 100);
+		Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 0, 1), 40, 40);
 		plane->setTexture(terrainTexture);
+		plane->setMaterial(terrainShade);
 		terrain->addSurface(plane);
-		terrain->translate(Vector(0, 0, -35));
+		terrain->translate(Vector(-20, -7, -40));
 		this->addObject(terrain);
 
 		//firefly
@@ -680,7 +728,7 @@ public:
 		Ellipsoid* fireflyBody = new Ellipsoid(Point(8, 8, 0), 0.2, 0.2, 0.2);
 		fireflyBody->setMaterial(fireflyShine);
 		firefly->addSurface(fireflyBody);
-		firefly->translate(Vector(0, 0, -35));
+		firefly->translate(Vector(0, 0, -25));
 		this->addObject(firefly);
 
 		//stork
@@ -733,7 +781,7 @@ public:
 		stork->addSurface(head);
 		stork->addSurface(beak);
 
-		stork->translate(Vector(0, 0, -35));
+		stork->translate(Vector(0, 0, -25));
 
 		this->addObject(stork);
 
@@ -786,6 +834,10 @@ void onInitialization() {
 	fireflyShine->setKa(1, 1, 1, 1);
 	fireflyShine->setKd(1, 1, 1, 1);
 	fireflyShine->setKs(1, 1, 1, 1, 20);
+	terrainShade = new Material();
+	terrainShade->setKa(0.4, 0.6, 0, 1);
+	terrainShade->setKd(0.2, 0.1, 0, 1);
+	terrainShade->setKs(0.4, 0.6, 0, 1, 2);
 
 	glViewport(0, 0, screenWidth, screenHeight);
 	glEnable(GL_DEPTH_TEST);
@@ -795,18 +847,19 @@ void onInitialization() {
 	//directional light
 	float dIa[] = { 0, 0, 0, 1 };
 	float dId[] = { 0.3, 0.3, 0.3, 1 };
-	float dIs[] = { 2, 2, 2, 1 };
+	float dIs[] = { 0.7, 0.7, 0.7, 1 };
 	glLightfv(GL_LIGHT0, GL_AMBIENT, dIa);
 	glLightfv(GL_LIGHT0, GL_DIFFUSE, dId);
 	glLightfv(GL_LIGHT0, GL_SPECULAR, dIs);
 	//positional light
 	float pIa[] = { 0.1, 0.1, 0.1, 1 };
-	float pId[] = { 0.3, 0.3, 0.3, 1 };
+	float pId[] = { 0.5, 0.5, 0.5, 1 };
 	float pIs[] = { 1, 1, 1, 1 };
 	glLightfv(GL_LIGHT1, GL_AMBIENT, pIa);
 	glLightfv(GL_LIGHT1, GL_DIFFUSE, pId);
 	glLightfv(GL_LIGHT1, GL_SPECULAR, pIs);
-
+	glEnable(GL_LIGHT0);
+	glEnable(GL_LIGHT1);
 	scene = new Scene();
 	scene->build();
 }
