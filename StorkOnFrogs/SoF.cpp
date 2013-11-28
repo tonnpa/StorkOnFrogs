@@ -25,7 +25,7 @@
 #define U_MAX 20
 #define V_MAX 20
 #define EPS 0.0001
-#define DEBUGGING 0
+#define DEBUGGING 1
 
 //--------------------------------------------------------
 // 3D Vektor
@@ -231,6 +231,8 @@ public:
 
 Material* orangeRed;
 Material* frogGreen;
+Material* storkWhite;
+Material* fireflyShine;
 
 class Texture{
 	unsigned int texID;
@@ -569,6 +571,7 @@ public:
 		camera->setOpenGL();
 
 		float pos[] = { 0, 0, 1, 0 };
+		float positionalPos[] = { 8.5, 8.5, 0, 1 };
 
 		if (DEBUGGING){
 			glMatrixMode(GL_MODELVIEW);
@@ -627,10 +630,11 @@ public:
 			}
 		}
 		else{
-			glMatrixMode(GL_MODELVIEW);
-			glTranslatef(0, 0, -35);
 			glLightfv(GL_LIGHT0, GL_POSITION, pos);
 			glEnable(GL_LIGHT0);
+			glLightfv(GL_LIGHT1, GL_POSITION, positionalPos);
+			glEnable(GL_LIGHT1);
+
 			for (int i = 0; i < objectCount; ++i){
 				objects[i]->draw();
 			}
@@ -668,13 +672,24 @@ public:
 		Plane* plane = new Plane(Point(-55, -7, -20), Vector(1, 0, 0), Vector(0, 0, 1), 100, 100);
 		plane->setTexture(terrainTexture);
 		terrain->addSurface(plane);
+		terrain->translate(Vector(0, 0, -35));
 		this->addObject(terrain);
+
+		//firefly
+		Object* firefly = new Object();
+		Ellipsoid* fireflyBody = new Ellipsoid(Point(8, 8, 0), 0.2, 0.2, 0.2);
+		fireflyBody->setMaterial(fireflyShine);
+		firefly->addSurface(fireflyBody);
+		firefly->translate(Vector(0, 0, -35));
+		this->addObject(firefly);
 
 		//stork
 		Object* stork = new Object();
 
 		StorkBody* storkbody = new StorkBody();
+		storkbody->setMaterial(storkWhite);
 		Ellipsoid* head = new Ellipsoid(Point(-5.8, 5.5, 0), 1, 0.6, 0.5);
+		head->setMaterial(storkWhite);
 		Cone* beak = new Cone(Point(-6.5, 5.5, 0), 3, 0.25);
 
 		Material* orangeRed = new Material();
@@ -718,6 +733,8 @@ public:
 		stork->addSurface(head);
 		stork->addSurface(beak);
 
+		stork->translate(Vector(0, 0, -35));
+
 		this->addObject(stork);
 
 		//frogs
@@ -725,14 +742,14 @@ public:
 		createFrog(frog);
 		frog->scale(Vector(0.3, 0.3, 0.3));
 		frog->rotate(-45, Vector(0, 1, 0));
-		frog->translate(Vector(-8, -6, 3));
+		frog->translate(Vector(-8, -6, -32));
 		this->addObject(frog);
 		
 		Object* frog2 = new Object();
 		createFrog(frog2);
 		frog2->scale(Vector(0.3, 0.3, 0.3));
 		frog2->rotate(-135, Vector(0, 1, 0));
-		frog2->translate(Vector(4, -6, 10));
+		frog2->translate(Vector(4, -6, -25));
 		this->addObject(frog2);
 	}
 
@@ -761,6 +778,14 @@ void onInitialization() {
 	frogGreen->setKa(0, 0.4, 0, 1);
 	frogGreen->setKs(1, 1, 1, 1, 20);
 	frogGreen->setKd(0.7, 1, 0.4, 1);
+	storkWhite = new Material();
+	storkWhite->setKa(0.75, 0.75, 0.75, 1);
+	storkWhite->setKd(1, 1, 1, 1);
+	storkWhite->setKs(1, 1, 1, 1, 7);
+	fireflyShine = new Material();
+	fireflyShine->setKa(1, 1, 1, 1);
+	fireflyShine->setKd(1, 1, 1, 1);
+	fireflyShine->setKs(1, 1, 1, 1, 20);
 
 	glViewport(0, 0, screenWidth, screenHeight);
 	glEnable(GL_DEPTH_TEST);
@@ -768,13 +793,19 @@ void onInitialization() {
 	glShadeModel(GL_SMOOTH);
 	glEnable(GL_NORMALIZE);
 	//directional light
-	float Ia[] = { 0, 0, 0, 1 };
-	float Id[] = { 0.3, 0.3, 0.3, 1 };
-	float Is[] = { 2, 2, 2, 1 };
-
-	glLightfv(GL_LIGHT0, GL_AMBIENT, Ia);
-	glLightfv(GL_LIGHT0, GL_DIFFUSE, Id);
-	glLightfv(GL_LIGHT0, GL_SPECULAR, Is);
+	float dIa[] = { 0, 0, 0, 1 };
+	float dId[] = { 0.3, 0.3, 0.3, 1 };
+	float dIs[] = { 2, 2, 2, 1 };
+	glLightfv(GL_LIGHT0, GL_AMBIENT, dIa);
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, dId);
+	glLightfv(GL_LIGHT0, GL_SPECULAR, dIs);
+	//positional light
+	float pIa[] = { 0.1, 0.1, 0.1, 1 };
+	float pId[] = { 0.3, 0.3, 0.3, 1 };
+	float pIs[] = { 1, 1, 1, 1 };
+	glLightfv(GL_LIGHT1, GL_AMBIENT, pIa);
+	glLightfv(GL_LIGHT1, GL_DIFFUSE, pId);
+	glLightfv(GL_LIGHT1, GL_SPECULAR, pIs);
 
 	scene = new Scene();
 	scene->build();
