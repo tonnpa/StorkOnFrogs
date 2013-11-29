@@ -66,11 +66,7 @@
 #define U_MAX 20
 #define V_MAX 20
 #define EPS 0.0001
-#define DEBUGGING 0
 
-//--------------------------------------------------------
-// 3D Vektor
-//--------------------------------------------------------
 struct Vector {
 	float x, y, z;
 	Vector() {
@@ -91,10 +87,10 @@ struct Vector {
 	Vector operator-(const Vector& v) {
 		return Vector(x - v.x, y - v.y, z - v.z);
 	}
-	float operator*(const Vector& v) {         // dot product
+	float operator*(const Vector& v) {
 		return (x * v.x + y * v.y + z * v.z);
 	}
-	Vector operator%(const Vector& v) {         // cross product
+	Vector operator%(const Vector& v) {
 		return Vector(y*v.z - z*v.y, z*v.x - x*v.z, x*v.y - y*v.x);
 	}
 	float Length() {
@@ -116,21 +112,6 @@ void glVector3f(Vector v){
 	glNormal3f(v.x, v.y, v.z);
 }
 
-void draw2DCircle(Point point){
-	glColor3f(1, 0, 0);
-	float radius = 0.2;
-	glBegin(GL_TRIANGLE_FAN);
-	glVertex3f(point.x, point.y, 0);
-	for (int i = 0; i <= 360; ++i){
-		glVertex3f(point.x + radius*cos(i / 360.0 * 2 * PI), point.y + radius*sin(i / 360.0 * 2 * PI), 0);
-	}
-	glEnd();
-	glColor3f(0, 0, 1);
-}
-
-//--------------------------------------------------------
-// Spektrum illetve szin
-//--------------------------------------------------------
 struct Color {
 	float r, g, b;
 
@@ -181,7 +162,7 @@ class CTRSpline{
 public:
 	CTRSpline() :pointCount(0), functionCount(POINT_CNT - 1){}
 
-	void addPoint(Point& p, float weight){
+	void addPoint(Point p, float weight){
 		if (pointCount < POINT_CNT){
 			this->p[pointCount] = p;
 			this->t[pointCount] = weight;
@@ -217,17 +198,6 @@ public:
 		}
 		return a3[i] * 3 * powf(u - t[i], 2) + a2[i] * 2 * (u - t[i]) + v[i];
 	}
-	void draw(){
-		glBegin(GL_LINE_STRIP);
-		for (int i = 0; i < U_MAX; ++i){
-			Point temp = curvePoint(i);
-			glPoint3f(curvePoint(i));
-		}
-		glEnd();
-		for (int i = 0; i < pointCount; ++i){
-			draw2DCircle(p[i]);
-		}
-	}
 };
 
 class Material{
@@ -243,28 +213,17 @@ public:
 		shininess[0] = 0;
 	}
 	void setKd(float r, float g, float b, float o){
-		kd[0] = r;
-		kd[1] = g;
-		kd[2] = b;
-		kd[3] = o;
+		kd[0] = r; kd[1] = g; kd[2] = b; kd[3] = o;
 	}
 	void setKs(float r, float g, float b, float o, float shine){
-		ks[0] = r;
-		ks[1] = g;
-		ks[2] = b;
-		ks[3] = o;
+		ks[0] = r; ks[1] = g; ks[2] = b; ks[3] = o;
 		shininess[0] = shine;
 	}
 	void setKa(float r, float g, float b, float o){
-		ka[0] = r;
-		ka[1] = g;
-		ka[2] = b;
-		ka[3] = o;
+		ka[0] = r; ka[1] = g; ka[2] = b; ka[3] = o;
 	}
 	void setOpenGL(){
 		glEnable(GL_LIGHTING);
-		glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
-
 		glMaterialfv(GL_FRONT, GL_AMBIENT, ka);
 		glMaterialfv(GL_FRONT, GL_DIFFUSE, ka);
 		glMaterialfv(GL_FRONT, GL_SPECULAR, ka);
@@ -276,7 +235,6 @@ Material* orangeRed;
 Material* frogGreen;
 Material* storkWhite;
 Material* fireflyShine;
-Material* terrainShade;
 Material* eyeBlack;
 
 class Texture{
@@ -285,13 +243,15 @@ public:
 	Texture(unsigned int ID) :texID(ID){}
 	void setOpenGL(){
 		glEnable(GL_TEXTURE_2D);
-		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+		glBindTexture(GL_TEXTURE_2D, texID);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		glBindTexture(GL_TEXTURE_2D, texID);
+		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	};
 };
+
+Texture* terrainTexture;
+Texture* storkTexture;
 
 class ParamSurface{
 	Texture* texture;
@@ -324,6 +284,17 @@ public:
 		else
 			glDisable(GL_LIGHTING);
 
+		//glBegin(GL_QUADS);
+		//for (int u = 0; u < U_MAX; ++u){
+		//	for (int v = 0; v < V_MAX; ++v){
+		//		vertexOpenGL(u, v);
+		//		vertexOpenGL(u + 1, v);
+		//		vertexOpenGL(u + 1, v + 1);
+		//		vertexOpenGL(u, v + 1);
+		//	}
+		//}
+		//glEnd();
+
 		glBegin(GL_TRIANGLES);
 		for (int u = 0; u < U_MAX; ++u){
 			for (int v = 0; v < V_MAX; ++v){
@@ -338,7 +309,6 @@ public:
 		}
 		glEnd();
 	}
-
 	void vertexOpenGL(float u, float v){
 		if (isTextured){
 			glTexCoord2d(u / U_MAX, v / V_MAX);
@@ -347,19 +317,6 @@ public:
 			glVector3f(surfaceNormal(u, v));
 		}
 		glPoint3f(surfacePoint(u, v));
-	}
-
-	void displaySurfaceNormals(){
-		glBegin(GL_LINES);
-		for (int u = 0; u < U_MAX; ++u){
-			for (int v = 0; v < V_MAX; ++v){
-				Point p = surfacePoint(u, v);
-				Vector n = surfaceNormal(u, v).normalized();
-				glPoint3f(p);
-				glPoint3f(p + n);
-			}
-		}
-		glEnd();
 	}
 };
 
@@ -378,7 +335,6 @@ public:
 		Point temp = leftCorner + x * u / U_MAX * xMax + y * v / V_MAX*yMax;
 		return leftCorner + x * u / U_MAX * xMax + y * v / V_MAX*yMax;
 	}
-
 	Point surfaceNormal(float u, float v){
 		return x%y;
 	}
@@ -391,12 +347,7 @@ class Ellipsoid : public ParamSurface{
 public:
 	Ellipsoid(Point center, float a, float b, float c) :
 		center(center), a(a), b(b), c(c){}
-
-	//u and v are to be interpreted in degrees
 	Point surfacePoint(float u, float v){
-		//u - angle to z axis
-		//v - angle to x axis
-		//u [0, 180] v [0, 360]
 		u = u / U_MAX * PI;
 		v = v / V_MAX * 2 * PI;
 		float x = a*sin(u)*cos(v);
@@ -404,10 +355,7 @@ public:
 		float z = c*cos(u);
 		return Point(x, y, z) + center;
 	}
-
 	Point surfaceNormal(float u, float v){
-		//dr/du x dr/dv
-		//u [-90, 90] v [-180, 180]
 		u = u / U_MAX * PI;
 		v = v / V_MAX * 2 * PI;
 		Vector drdu = Vector(a*cos(u)*cos(v), b*cos(u)*sin(v), -c*sin(u));
@@ -423,8 +371,6 @@ class Cone : public ParamSurface{
 public:
 	Cone(Point center, float h, float r) : center(center), h(h), r(r){}
 	Point surfacePoint(float u, float v){
-		//u - h
-		//v - angle to x
 		v = v / V_MAX * 2 * PI;
 		float x = -u / U_MAX*h;
 		float y = (1 - u / U_MAX) * r*sin(v);
@@ -489,27 +435,16 @@ public:
 		return (outline->curvePoint(u) - midline->curvePoint(u)).Length();
 	}
 	Vector normal(float u){
-		//N(u) = BxT
 		Vector B = Vector(0, 0, 1);
 		Vector T = midline->curvePointDerivative(u).normalized();
 		return B%T;
 	}
 	Point surfacePoint(float u, float v){
-		//r(u,v) = s(u) + B(u) r(u) cos(v) + N(u) r(u) sin (v)
-		//where s(u) - midline
-		//                r(u) - radius
-		//                N(u) = BxT
-		//convert v to radian
 		v = v / V_MAX * 2 * PI;
-		Vector B = Vector(0, 0, 1); //z increases towards us
+		Vector B = Vector(0, 0, 1);
 		return midline->curvePoint(u) + B*radius(u)*cos(v) + normal(u)*radius(u)*sin(v);
 	}
-	//returns surfaceNormal by averaging the normal of nearby surfaces
 	Point surfaceNormal(float u, float v){
-		//v1 r(u-1,v)
-		//v3 r(u+1,v)
-		//v2 r(u,v-1)
-		//v4 r(u,v+1)
 		Point r = surfacePoint(u, v);
 
 		Vector v1 = surfacePoint(u - 1, v) - r;
@@ -533,7 +468,6 @@ public:
 			valid--;
 			v4 = Vector(0, 0, 0);
 		}
-
 		Vector n1 = v1%v2;
 		Vector n2 = v2%v3;
 		Vector n3 = v3%v4;
@@ -552,14 +486,14 @@ public:
 	Object() :surfaceCount(0){
 		transformation = ModelTransformation();
 	}
-	void translate(Vector& v){
+	void translate(Vector v){
 		transformation.translate = v;
 	}
 	void rotate(float phi, Vector axis){
 		transformation.phi = phi;
 		transformation.rotate = axis;
 	}
-	void scale(Vector& v){
+	void scale(Vector v){
 		transformation.scale = v;
 	}
 	void addSurface(ParamSurface* newSurface){
@@ -579,18 +513,16 @@ public:
 };
 
 class Camera{
-	float fovy; //Specifies the field of view angle, in degrees, in the y direction.
-	float aspect; //Specifies the aspect ratio that determines the field of view in the x direction. The aspect ratio is the ratio of x (width) to y (height).
-	float zNear; //Specifies the distance from the viewer to the near clipping plane (always positive).
-	float zFar; //Specifies the distance from the viewer to the far clipping plane (always positive).
+	float fovy;
+	float aspect;
+	float zNear;
+	float zFar;
 
 	Point eye, lookAt;
 	Vector vup;
-
 public:
 	Camera(Point eye, Point lookAt, Vector vup, float fov, float asp, float fp, float bp) :
 		eye(eye), lookAt(lookAt), vup(vup), fovy(fov), aspect(asp), zNear(fp), zFar(bp){};
-
 	void setOpenGL(){
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
@@ -610,99 +542,63 @@ public:
 	Scene() :objectCount(0){
 		camera = new Camera(Point(0, 0, 0), Point(0, 0, -1), Vector(0, 1, 0), 54, 1, 1, 100);
 	}
-
-	void render(){
-		camera->setOpenGL();
-
-		float pos[] = { 0, -1, 1, 0 };
-		float positionalPos[] = { 7.5, 7.5, 0, 1 };
-
-		if (DEBUGGING){
-			glMatrixMode(GL_MODELVIEW);
-			glTranslatef(0, 0, -35);
-			glRotatef(270, 0, 1, 0);
-			glScalef(4, 4, 4);
-
-			float debuggingDirection[] = { 0, 0, 1, 0 };
-			glLightfv(GL_LIGHT0, GL_POSITION, debuggingDirection);
-			glEnable(GL_LIGHT0);
-			float debuggingPosition[] = { 0, 0, -5, 1 };
-			glLightfv(GL_LIGHT1, GL_POSITION, debuggingPosition);
-			glEnable(GL_LIGHT1);
-
-			Object* testObject = new Object();
-			Cone* cone = new Cone(Point(0, 0, 0), 5, 2.5);
-			Ellipsoid* ellipsoid = new Ellipsoid(Point(0, 0, 0), 2, 2, 2);
-			Cylinder* cylinder = new Cylinder(Point(0, 0, 0), Vector(0, 1, 0), 5, 0.5);
-			Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 1, 0), 10, 10);
-			StorkBody* body = new StorkBody();
-
-			cone->setMaterial(orangeRed);
-			//ellipsoid->setMaterial(orangeRed);
-			cylinder->setMaterial(orangeRed);
-			plane->setMaterial(orangeRed);
-			body->setMaterial(orangeRed);
-
-			int testMode = 0;
-			bool displayNormal = false;
-
-			float angleToZ = U_MAX / 4;
-			float angleToX = V_MAX / 8;
-			Point eye = ellipsoid->surfacePoint(angleToZ, angleToX);
-			Point eye2 = ellipsoid->surfacePoint(angleToZ*3, angleToX);
-			float radius = eye.Length();
-			Ellipsoid* eyeball = new Ellipsoid(eye, 0.2, 0.2, 0.2);
-			Ellipsoid* eyeball2 = new Ellipsoid(eye2, 0.2, 0.2, 0.2);
-
-			switch (testMode){
-			case 0:
-				if (displayNormal)
-					ellipsoid->displaySurfaceNormals();
-
-				glColor3f(1, 0, 0);
-				ellipsoid->draw();
-				glColor3f(0, 0, 1);
-				eyeball->draw();
-				glColor3f(0, 1, 0);
-				eyeball2->draw();
-				break;
-			case 1:
-				if (displayNormal)
-					cone->displaySurfaceNormals();
-				cone->draw();
-				break;
-			case 2:
-				if (displayNormal)
-					body->displaySurfaceNormals();
-				body->draw();
-				break;
-			case 3:
-				if (displayNormal)
-					plane->displaySurfaceNormals();
-				plane->draw();
-				break;
-			case 4:
-				testObject->addSurface(cone);
-				testObject->addSurface(ellipsoid);
-				testObject->addSurface(cylinder);
-				testObject->addSurface(plane);
-				testObject->addSurface(body);
-
-				testObject->draw();
-			default:
-				break;
-			}
-		}
-		else{
-			glLightfv(GL_LIGHT0, GL_POSITION, pos);
-			glLightfv(GL_LIGHT1, GL_POSITION, positionalPos);
-
-			for (int i = 0; i < objectCount; ++i){
-				objects[i]->draw();
-			}
+	void addObject(Object* newObject){
+		if (objectCount < OBJ_NUM){
+			objects[objectCount] = newObject;
+			objectCount++;
 		}
 	}
+	void render(){
+		camera->setOpenGL();
+		float pos[] = { 0, -1, 1, 0 };
+		float positionalPos[] = { 7.5, 7.5, 0, 1 };
+		glLightfv(GL_LIGHT0, GL_POSITION, pos);
+		glLightfv(GL_LIGHT1, GL_POSITION, positionalPos);
+		for (int i = 0; i < objectCount; ++i){
+			objects[i]->draw();
+		}
+	}
+	void build(){
+		Object* terrain = new Object();
+		createTerrain(terrain);
+		terrain->translate(Vector(-20, -7, -40));
+		this->addObject(terrain);
 
+		Object* firefly = new Object();
+		createFirefly(firefly);
+		this->addObject(firefly);
+
+		Object* stork = new Object();
+		createStork(stork);
+		stork->rotate(180, Vector(0, 1, 0));
+		stork->translate(Vector(-4, 0, -25));
+		this->addObject(stork);
+
+		Object* frog = new Object();
+		createFrog(frog);
+		frog->scale(Vector(0.3, 0.3, 0.3));
+		frog->rotate(-45, Vector(0, 1, 0));
+		frog->translate(Vector(-8, -6, -32));
+		this->addObject(frog);
+
+		Object* frog2 = new Object();
+		createFrog(frog2);
+		frog2->scale(Vector(0.3, 0.3, 0.3));
+		frog2->rotate(-135, Vector(0, 1, 0));
+		frog2->translate(Vector(4, -6, -25));
+		this->addObject(frog2);
+	}
+	void createFirefly(Object* firefly){
+		Ellipsoid* fireflyBody = new Ellipsoid(Point(8, 8, 0), 0.2, 0.2, 0.2);
+		fireflyBody->setMaterial(fireflyShine);
+		firefly->addSurface(fireflyBody);
+		firefly->translate(Vector(0, 0, -25));
+	}
+	void createTerrain(Object* terrain){
+		Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 0, 1), 40, 40);
+		plane->setTexture(terrainTexture);
+		terrain->addSurface(plane);
+	}
 	void createFrog(Object* frog){
 		Ellipsoid* frogBody = new Ellipsoid(Point(-2, 1, 0), 5.5, 2.75, 3);
 		Ellipsoid* frogHead = new Ellipsoid(Point(3.75, 1.5, 0), 2, 2, 2.5);
@@ -713,17 +609,14 @@ public:
 		frogHead->setMaterial(frogGreen);
 		frontLegR->setMaterial(frogGreen);
 		frontLegL->setMaterial(frogGreen);
-
 		float angleToZ = U_MAX / 4;
 		float angleToX = V_MAX / 8;
 		Point eye = frogHead->surfacePoint(angleToZ, angleToX);
 		Point eye2 = frogHead->surfacePoint(angleToZ * 3, angleToX);
-
 		Ellipsoid* eyeL = new Ellipsoid(eye, 0.7, 0.7, 0.7);
 		Ellipsoid* eyeR = new Ellipsoid(eye2, 0.7, 0.7, 0.7);
 		eyeL->setMaterial(eyeBlack);
 		eyeR->setMaterial(eyeBlack);
-
 		frog->addSurface(frogBody);
 		frog->addSurface(frogHead);
 		frog->addSurface(frontLegR);
@@ -731,61 +624,21 @@ public:
 		frog->addSurface(eyeL);
 		frog->addSurface(eyeR);
 	}
-
-	void build(){
-		unsigned int texids;
-		glGenTextures(1, &texids);
-		glBindTexture(GL_TEXTURE_2D, texids);
-		int level = 0, border = 0, width = 3, height = 1;
-		//float terrainPattern[] = { 0, 1, 0, 0.3, 1, 0.3, 0.6, 1, 0.6 };
-		//float terrainPattern[] = { 0.54, 0.27, 0.07, 0.62, 0.31, 0.16, 0.82, 0.41, 0.16 };
-		float terrainPattern[] = { 0.54, 0.27, 0.07, 0, 0, 0, 0.82, 0.41, 0.16 };
-		glTexImage2D(GL_TEXTURE_2D, level, GL_RGB, width, height, border, GL_RGB, GL_FLOAT, terrainPattern);
-		Texture* terrainTexture = new Texture(texids);
-
-		//terrain
-		Object* terrain = new Object();
-		//Plane* plane = new Plane(Point(-55, -7, -20), Vector(1, 0, 0), Vector(0, 0, 1), 100, 100);
-		Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 0, 1), 40, 40);
-		plane->setTexture(terrainTexture);
-		plane->setMaterial(terrainShade);
-		terrain->addSurface(plane);
-		terrain->translate(Vector(-20, -7, -40));
-		this->addObject(terrain);
-
-		//firefly
-		Object* firefly = new Object();
-		Ellipsoid* fireflyBody = new Ellipsoid(Point(8, 8, 0), 0.2, 0.2, 0.2);
-		fireflyBody->setMaterial(fireflyShine);
-		firefly->addSurface(fireflyBody);
-		firefly->translate(Vector(0, 0, -25));
-		this->addObject(firefly);
-
-		//stork
-		Object* stork = new Object();
-
+	void createStork(Object* stork){
 		StorkBody* storkbody = new StorkBody();
 		storkbody->setMaterial(storkWhite);
 		Ellipsoid* head = new Ellipsoid(Point(-5.8, 5.5, 0), 1, 0.6, 0.5);
 		head->setMaterial(storkWhite);
 		Cone* beak = new Cone(Point(-6.5, 5.5, 0), 3, 0.25);
-		
 		float angleToZ = U_MAX / 4;
 		float angleToX = V_MAX / 8;
 		Point eye = head->surfacePoint(-angleToZ, -angleToX);
 		Point eye2 = head->surfacePoint(-angleToZ * 3, -angleToX);
-
 		Ellipsoid* eyeL = new Ellipsoid(eye, 0.1, 0.1, 0.1);
 		Ellipsoid* eyeR = new Ellipsoid(eye2, 0.1, 0.1, 0.1);
 		eyeL->setMaterial(eyeBlack);
 		eyeR->setMaterial(eyeBlack);
-
-		Material* orangeRed = new Material();
-		orangeRed->setKs(1, 1, 1, 1, 4);
-		orangeRed->setKd(0.8, 0.27, 0, 1);
-		orangeRed->setKa(0.2, 0.1, 0, 1);
 		beak->setMaterial(orangeRed);
-
 		Point p1, p2, p3, p4, p5;
 		p1 = Point(-1.5, 0.5, 0);
 		p2 = Point(0.25, -3, 0);
@@ -806,11 +659,6 @@ public:
 		cru->setMaterial(orangeRed);
 		crd->setMaterial(orangeRed);
 
-		glGenTextures(1, &texids);
-		glBindTexture(GL_TEXTURE_2D, texids);
-		float storkPattern[] = { 1, 1, 1, 1, 1, 1, 0, 0, 0 };
-		glTexImage2D(GL_TEXTURE_2D, level, GL_RGB, width, height, border, GL_RGB, GL_FLOAT, storkPattern);
-		Texture* storkTexture = new Texture(texids);
 		storkbody->setTexture(storkTexture);
 
 		stork->addSurface(clu);
@@ -822,44 +670,14 @@ public:
 		stork->addSurface(eyeL);
 		stork->addSurface(eyeR);
 		stork->addSurface(beak);
-
-		stork->rotate(180, Vector(0, 1, 0));
-		stork->translate(Vector(-4, 0, -25));
-
-		this->addObject(stork);
-
-		//frogs
-		Object* frog = new Object();
-		createFrog(frog);
-		frog->scale(Vector(0.3, 0.3, 0.3));
-		frog->rotate(-45, Vector(0, 1, 0));
-		frog->translate(Vector(-8, -6, -32));
-		this->addObject(frog);
-		
-		Object* frog2 = new Object();
-		createFrog(frog2);
-		frog2->scale(Vector(0.3, 0.3, 0.3));
-		frog2->rotate(-135, Vector(0, 1, 0));
-		frog2->translate(Vector(4, -6, -25));
-		this->addObject(frog2);
-	}
-
-	void addObject(Object* newObject){
-		if (objectCount < OBJ_NUM){
-			objects[objectCount] = newObject;
-			objectCount++;
-		}
 	}
 };
-
-const int screenWidth = 600;        // alkalmazA!s ablak felbontA!sa
+const int screenWidth = 600;
 const int screenHeight = 600;
-
-Color image[screenWidth*screenHeight];        // egy alkalmazA!s ablaknyi kA©p
+Color image[screenWidth*screenHeight];
 
 Scene* scene;
 
-// Inicializacio, a program futasanak kezdeten, az OpenGL kontextus letrehozasa utan hivodik meg (ld. main() fv.)
 void onInitialization() {
 	orangeRed = new Material();
 	orangeRed->setKs(0.8, 0.2, 0, 1, 4);
@@ -877,59 +695,64 @@ void onInitialization() {
 	fireflyShine->setKa(1, 1, 1, 1);
 	fireflyShine->setKd(1, 1, 1, 1);
 	fireflyShine->setKs(1, 1, 1, 1, 20);
-	terrainShade = new Material();
-	terrainShade->setKa(0.4, 0.6, 0, 1);
-	terrainShade->setKd(0.2, 0.1, 0, 1);
-	terrainShade->setKs(0.4, 0.6, 0, 1, 2);
 	eyeBlack = new Material();
 	eyeBlack->setKa(0, 0, 0, 1);
 	eyeBlack->setKd(0.1, 0.1, 0.1, 1);
 	eyeBlack->setKs(0.7, 0.7, 0.7, 1, 5);
+
+	unsigned int texids;
+	glGenTextures(1, &texids);
+	glBindTexture(GL_TEXTURE_2D, texids);
+	int level = 0, border = 0, width = 3, height = 1;
+	float terrainPattern[] = { 0.54, 0.27, 0.07, 0, 0, 0, 0.82, 0.41, 0.16 };
+	glTexImage2D(GL_TEXTURE_2D, level, GL_RGB, width, height, border, GL_RGB, GL_FLOAT, terrainPattern);
+	terrainTexture = new Texture(texids);
+
+	glGenTextures(1, &texids);
+	glBindTexture(GL_TEXTURE_2D, texids);
+	float storkPattern[] = { 1, 1, 1, 1, 1, 1, 0, 0, 0 };
+	glTexImage2D(GL_TEXTURE_2D, level, GL_RGB, width, height, border, GL_RGB, GL_FLOAT, storkPattern);
+	storkTexture = new Texture(texids);
 
 	glViewport(0, 0, screenWidth, screenHeight);
 	glEnable(GL_DEPTH_TEST);
 	glDisable(GL_CULL_FACE);
 	glShadeModel(GL_SMOOTH);
 	glEnable(GL_NORMALIZE);
-	//directional light
+
 	float dIa[] = { 0, 0, 0, 1 };
 	float dId[] = { 0.3, 0.3, 0.3, 1 };
 	float dIs[] = { 0.7, 0.7, 0.7, 1 };
 	glLightfv(GL_LIGHT0, GL_AMBIENT, dIa);
 	glLightfv(GL_LIGHT0, GL_DIFFUSE, dId);
 	glLightfv(GL_LIGHT0, GL_SPECULAR, dIs);
-	//positional light
+
 	float pIa[] = { 0.1, 0.1, 0.1, 1 };
 	float pId[] = { 0.5, 0.5, 0.5, 1 };
 	float pIs[] = { 1, 1, 1, 1 };
 	glLightfv(GL_LIGHT1, GL_AMBIENT, pIa);
 	glLightfv(GL_LIGHT1, GL_DIFFUSE, pId);
 	glLightfv(GL_LIGHT1, GL_SPECULAR, pIs);
+
 	glEnable(GL_LIGHT0);
 	glEnable(GL_LIGHT1);
 	scene = new Scene();
 	scene->build();
 }
 
-// Rajzolas, ha az alkalmazas ablak ervenytelenne valik, akkor ez a fuggveny hivodik meg
 void onDisplay() {
-	glClearColor(0.1f, 0.1f, 0.2f, 1.0f);                // torlesi szin beallitasa
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // kepernyo torles
+	glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	scene->render();
 
-	glutSwapBuffers();                                     // Buffercsere: rajzolas vege
+	glutSwapBuffers();
 }
 
-// Billentyuzet esemenyeket lekezelo fuggveny (lenyomas)
 void onKeyboard(unsigned char key, int x, int y) {}
-// Billentyuzet esemenyeket lekezelo fuggveny (felengedes)
 void onKeyboardUp(unsigned char key, int x, int y) {}
-// Eger esemenyeket lekezelo fuggveny
 void onMouse(int button, int state, int x, int y) {}
-// Eger mozgast lekezelo fuggveny
 void onMouseMotion(int x, int y){}
-// `Idle' esemenykezelo, jelzi, hogy az ido telik, az Idle esemenyek frekvenciajara csak a 0 a garantalt minimalis ertek
 void onIdle() {}
 // ...Idaig modosithatod
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
