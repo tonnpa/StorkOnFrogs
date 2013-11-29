@@ -57,8 +57,6 @@
 #include <GL/glut.h>                                                                                                                                                                                                              
 #endif          
 
-#include <iostream>
-
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
 
@@ -119,6 +117,7 @@ void glVector3f(Vector v){
 }
 
 void draw2DCircle(Point point){
+	glColor3f(1, 0, 0);
 	float radius = 0.2;
 	glBegin(GL_TRIANGLE_FAN);
 	glVertex3f(point.x, point.y, 0);
@@ -126,6 +125,7 @@ void draw2DCircle(Point point){
 		glVertex3f(point.x + radius*cos(i / 360.0 * 2 * PI), point.y + radius*sin(i / 360.0 * 2 * PI), 0);
 	}
 	glEnd();
+	glColor3f(0, 0, 1);
 }
 
 //--------------------------------------------------------
@@ -277,6 +277,7 @@ Material* frogGreen;
 Material* storkWhite;
 Material* fireflyShine;
 Material* terrainShade;
+Material* eyeBlack;
 
 class Texture{
 	unsigned int texID;
@@ -395,7 +396,7 @@ public:
 	Point surfacePoint(float u, float v){
 		//u - angle to z axis
 		//v - angle to x axis
-		//u [-90, 90] v [-180, 180]
+		//u [0, 180] v [0, 360]
 		u = u / U_MAX * PI;
 		v = v / V_MAX * 2 * PI;
 		float x = a*sin(u)*cos(v);
@@ -619,9 +620,12 @@ public:
 		if (DEBUGGING){
 			glMatrixMode(GL_MODELVIEW);
 			glTranslatef(0, 0, -35);
-			glRotatef(180, 0, 1, 0);
-			//glLightfv(GL_LIGHT0, GL_POSITION, pos);
-			//glEnable(GL_LIGHT0);
+			glRotatef(270, 0, 1, 0);
+			glScalef(4, 4, 4);
+
+			float debuggingDirection[] = { 0, 0, 1, 0 };
+			glLightfv(GL_LIGHT0, GL_POSITION, debuggingDirection);
+			glEnable(GL_LIGHT0);
 			float debuggingPosition[] = { 0, 0, -5, 1 };
 			glLightfv(GL_LIGHT1, GL_POSITION, debuggingPosition);
 			glEnable(GL_LIGHT1);
@@ -634,7 +638,7 @@ public:
 			StorkBody* body = new StorkBody();
 
 			cone->setMaterial(orangeRed);
-			ellipsoid->setMaterial(orangeRed);
+			//ellipsoid->setMaterial(orangeRed);
 			cylinder->setMaterial(orangeRed);
 			plane->setMaterial(orangeRed);
 			body->setMaterial(orangeRed);
@@ -642,11 +646,25 @@ public:
 			int testMode = 0;
 			bool displayNormal = false;
 
+			float angleToZ = U_MAX / 4;
+			float angleToX = V_MAX / 8;
+			Point eye = ellipsoid->surfacePoint(angleToZ, angleToX);
+			Point eye2 = ellipsoid->surfacePoint(angleToZ*3, angleToX);
+			float radius = eye.Length();
+			Ellipsoid* eyeball = new Ellipsoid(eye, 0.2, 0.2, 0.2);
+			Ellipsoid* eyeball2 = new Ellipsoid(eye2, 0.2, 0.2, 0.2);
+
 			switch (testMode){
 			case 0:
 				if (displayNormal)
 					ellipsoid->displaySurfaceNormals();
+
+				glColor3f(1, 0, 0);
 				ellipsoid->draw();
+				glColor3f(0, 0, 1);
+				eyeball->draw();
+				glColor3f(0, 1, 0);
+				eyeball2->draw();
 				break;
 			case 1:
 				if (displayNormal)
@@ -696,10 +714,22 @@ public:
 		frontLegR->setMaterial(frogGreen);
 		frontLegL->setMaterial(frogGreen);
 
+		float angleToZ = U_MAX / 4;
+		float angleToX = V_MAX / 8;
+		Point eye = frogHead->surfacePoint(angleToZ, angleToX);
+		Point eye2 = frogHead->surfacePoint(angleToZ * 3, angleToX);
+
+		Ellipsoid* eyeL = new Ellipsoid(eye, 0.7, 0.7, 0.7);
+		Ellipsoid* eyeR = new Ellipsoid(eye2, 0.7, 0.7, 0.7);
+		eyeL->setMaterial(eyeBlack);
+		eyeR->setMaterial(eyeBlack);
+
 		frog->addSurface(frogBody);
 		frog->addSurface(frogHead);
 		frog->addSurface(frontLegR);
 		frog->addSurface(frontLegL);
+		frog->addSurface(eyeL);
+		frog->addSurface(eyeR);
 	}
 
 	void build(){
@@ -739,6 +769,16 @@ public:
 		Ellipsoid* head = new Ellipsoid(Point(-5.8, 5.5, 0), 1, 0.6, 0.5);
 		head->setMaterial(storkWhite);
 		Cone* beak = new Cone(Point(-6.5, 5.5, 0), 3, 0.25);
+		
+		float angleToZ = U_MAX / 4;
+		float angleToX = V_MAX / 8;
+		Point eye = head->surfacePoint(-angleToZ, -angleToX);
+		Point eye2 = head->surfacePoint(-angleToZ * 3, -angleToX);
+
+		Ellipsoid* eyeL = new Ellipsoid(eye, 0.1, 0.1, 0.1);
+		Ellipsoid* eyeR = new Ellipsoid(eye2, 0.1, 0.1, 0.1);
+		eyeL->setMaterial(eyeBlack);
+		eyeR->setMaterial(eyeBlack);
 
 		Material* orangeRed = new Material();
 		orangeRed->setKs(1, 1, 1, 1, 4);
@@ -779,9 +819,12 @@ public:
 		stork->addSurface(crd);
 		stork->addSurface(storkbody);
 		stork->addSurface(head);
+		stork->addSurface(eyeL);
+		stork->addSurface(eyeR);
 		stork->addSurface(beak);
 
-		stork->translate(Vector(0, 0, -25));
+		stork->rotate(180, Vector(0, 1, 0));
+		stork->translate(Vector(-4, 0, -25));
 
 		this->addObject(stork);
 
@@ -838,6 +881,10 @@ void onInitialization() {
 	terrainShade->setKa(0.4, 0.6, 0, 1);
 	terrainShade->setKd(0.2, 0.1, 0, 1);
 	terrainShade->setKs(0.4, 0.6, 0, 1, 2);
+	eyeBlack = new Material();
+	eyeBlack->setKa(0, 0, 0, 1);
+	eyeBlack->setKd(0.1, 0.1, 0.1, 1);
+	eyeBlack->setKs(0.7, 0.7, 0.7, 1, 5);
 
 	glViewport(0, 0, screenWidth, screenHeight);
 	glEnable(GL_DEPTH_TEST);
