@@ -168,7 +168,7 @@ public:
 		}
 	}
 	void setup(){
-		v[0] = v[pointCount-1] = Vector(0, 0, 0);
+		v[0] = v[pointCount - 1] = Vector(0.01, 0.01, 0.01);
 		for (int i = 1; i < pointCount - 1; ++i){
 			v[i] = ((p[i + 1] - p[i]) / (t[i + 1] - t[i]) + (p[i] - p[i - 1]) / (t[i] - t[i - 1]))*0.5;
 		}
@@ -281,17 +281,6 @@ public:
 		}
 		else
 			glDisable(GL_LIGHTING);
-
-		//glBegin(GL_QUADS);
-		//for (int u = 0; u < U_MAX; ++u){
-		//	for (int v = 0; v < V_MAX; ++v){
-		//		vertexOpenGL(u, v);
-		//		vertexOpenGL(u + 1, v);
-		//		vertexOpenGL(u + 1, v + 1);
-		//		vertexOpenGL(u, v + 1);
-		//	}
-		//}
-		//glEnd();
 
 		glBegin(GL_TRIANGLES);
 		for (int u = 0; u < U_MAX; ++u){
@@ -549,7 +538,7 @@ public:
 	void render(){
 		camera->setOpenGL();
 		float pos[] = { 0, -1, 1, 0 };
-		float positionalPos[] = { 7.8, 7.8, 0, 1 };
+		float positionalPos[] = { 7.8, 7.8, -25, 1 };
 		glLightfv(GL_LIGHT0, GL_POSITION, pos);
 		glLightfv(GL_LIGHT1, GL_POSITION, positionalPos);
 		for (int i = 0; i < objectCount; ++i){
