@@ -107,7 +107,6 @@ typedef Vector Point;
 void glPoint3f(Point p){
 	glVertex3f(p.x, p.y, p.z);
 }
-
 void glVector3f(Vector v){
 	glNormal3f(v.x, v.y, v.z);
 }
@@ -142,7 +141,6 @@ struct ModelTransformation{
 		rotate = Vector(0, 1, 0);
 		translate = Vector(0, 0, 0);
 	}
-
 	void setOpenGL(){
 		glTranslatef(translate.x, translate.y, translate.z);
 		glRotatef(phi, rotate.x, rotate.y, rotate.z);
@@ -170,7 +168,7 @@ public:
 		}
 	}
 	void setup(){
-		v[0] = v[pointCount] = Vector(0, 0, 0);
+		v[0] = v[pointCount-1] = Vector(0, 0, 0);
 		for (int i = 1; i < pointCount - 1; ++i){
 			v[i] = ((p[i + 1] - p[i]) / (t[i + 1] - t[i]) + (p[i] - p[i - 1]) / (t[i] - t[i - 1]))*0.5;
 		}
@@ -225,8 +223,8 @@ public:
 	void setOpenGL(){
 		glEnable(GL_LIGHTING);
 		glMaterialfv(GL_FRONT, GL_AMBIENT, ka);
-		glMaterialfv(GL_FRONT, GL_DIFFUSE, ka);
-		glMaterialfv(GL_FRONT, GL_SPECULAR, ka);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, kd);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, ks);
 		glMaterialfv(GL_FRONT, GL_SHININESS, shininess);
 	};
 };
@@ -551,7 +549,7 @@ public:
 	void render(){
 		camera->setOpenGL();
 		float pos[] = { 0, -1, 1, 0 };
-		float positionalPos[] = { 7.5, 7.5, 0, 1 };
+		float positionalPos[] = { 7.8, 7.8, 0, 1 };
 		glLightfv(GL_LIGHT0, GL_POSITION, pos);
 		glLightfv(GL_LIGHT1, GL_POSITION, positionalPos);
 		for (int i = 0; i < objectCount; ++i){
@@ -650,17 +648,15 @@ public:
 		v4 = (Point(-1.2, -6.6, 0) - Point(-1.3, -3.8, 0)).normalized();
 		p4 = p1 + v3*v1.Length();
 		p5 = p4 + v4*v2.Length();
-		Cylinder* clu = new Cylinder(p1, v1, v1.Length(), 0.2);
-		Cylinder* cld = new Cylinder(p2, v2, v2.Length(), 0.2);
-		Cylinder* cru = new Cylinder(p1, v3, v1.Length(), 0.2);
-		Cylinder* crd = new Cylinder(p4, v4, v2.Length(), 0.2);
+		Cylinder* clu = new Cylinder(p1 + Point(0, 0, 0.75), v1, v1.Length(), 0.2);
+		Cylinder* cld = new Cylinder(p2 + Point(0, 0, 0.75), v2, v2.Length(), 0.2);
+		Cylinder* cru = new Cylinder(p1 + Point(0, 0, -0.75), v3, v1.Length(), 0.2);
+		Cylinder* crd = new Cylinder(p4 + Point(0, 0, -0.75), v4, v2.Length(), 0.2);
 		clu->setMaterial(orangeRed);
 		cld->setMaterial(orangeRed);
 		cru->setMaterial(orangeRed);
 		crd->setMaterial(orangeRed);
-
 		storkbody->setTexture(storkTexture);
-
 		stork->addSurface(clu);
 		stork->addSurface(cld);
 		stork->addSurface(cru);
@@ -672,11 +668,12 @@ public:
 		stork->addSurface(beak);
 	}
 };
+
+Scene* scene;
+
 const int screenWidth = 600;
 const int screenHeight = 600;
 Color image[screenWidth*screenHeight];
-
-Scene* scene;
 
 void onInitialization() {
 	orangeRed = new Material();
@@ -722,14 +719,14 @@ void onInitialization() {
 
 	float dIa[] = { 0, 0, 0, 1 };
 	float dId[] = { 0.3, 0.3, 0.3, 1 };
-	float dIs[] = { 0.7, 0.7, 0.7, 1 };
+	float dIs[] = { 0.4, 0.4, 0.4, 1 };
 	glLightfv(GL_LIGHT0, GL_AMBIENT, dIa);
 	glLightfv(GL_LIGHT0, GL_DIFFUSE, dId);
 	glLightfv(GL_LIGHT0, GL_SPECULAR, dIs);
 
 	float pIa[] = { 0.1, 0.1, 0.1, 1 };
 	float pId[] = { 0.5, 0.5, 0.5, 1 };
-	float pIs[] = { 1, 1, 1, 1 };
+	float pIs[] = { 0.7, 0.7, 0.7, 1 };
 	glLightfv(GL_LIGHT1, GL_AMBIENT, pIa);
 	glLightfv(GL_LIGHT1, GL_DIFFUSE, pId);
 	glLightfv(GL_LIGHT1, GL_SPECULAR, pIs);
