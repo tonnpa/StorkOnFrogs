@@ -66,6 +66,7 @@
 #define U_MAX 20
 #define V_MAX 20
 #define EPS 0.0001
+#define DELTA_TIME 20.0
 
 struct Vector {
 	float x, y, z;
@@ -92,6 +93,9 @@ struct Vector {
 	}
 	Vector operator%(const Vector& v) {
 		return Vector(y*v.z - z*v.y, z*v.x - x*v.z, x*v.y - y*v.x);
+	}
+	void operator+=(const Vector& v) {
+		x += v.x; y += v.y; z += v.z;
 	}
 	float Length() {
 		return sqrt(x * x + y * y + z * z);
@@ -305,6 +309,7 @@ public:
 		}
 		glPoint3f(surfacePoint(u, v));
 	}
+	virtual void setBoneProperties(Vector rotationAxis, Vector jointPosition, float rotationAngle){}
 };
 
 class Plane : public ParamSurface{
@@ -377,6 +382,11 @@ class Cylinder : public ParamSurface{
 	Point center;
 	Vector a;
 
+	//h = bone length
+	float rotationAngle;
+	Vector rotationAxis;
+	Point jointPosition;
+
 public:
 	Cylinder(Point center, Vector a, float h, float r) :
 		center(center), h(h), r(r){
@@ -392,6 +402,11 @@ public:
 	Point surfaceNormal(float u, float v){
 		Point axisPoint = center + a*u / U_MAX*h;
 		return surfacePoint(u, v) - axisPoint;
+	}
+	void setBoneProperties(Vector rotationAxis, Vector jointPosition, float rotationAngle){
+		this->rotationAxis = rotationAxis;
+		this->jointPosition = jointPosition;
+		this->rotationAngle = rotationAngle;
 	}
 };
 
@@ -497,6 +512,9 @@ public:
 		}
 		glPopMatrix();
 	}
+	void animate(float deltaTime){
+		this->transformation.translate += Vector(0.1, 0, 0) * deltaTime/1000;
+	}
 };
 
 class Camera{
@@ -527,7 +545,7 @@ class Scene{
 
 public:
 	Scene() :objectCount(0){
-		camera = new Camera(Point(0, 0, 0), Point(0, 0, -1), Vector(0, 1, 0), 54, 1, 1, 100);
+		camera = new Camera(Point(0, 20, 0), Point(0, 0, -50), Vector(0, 1, 0), 54, 1, 1, 100);
 	}
 	void addObject(Object* newObject){
 		if (objectCount < OBJ_NUM){
@@ -548,38 +566,38 @@ public:
 	void build(){
 		Object* terrain = new Object();
 		createTerrain(terrain);
-		terrain->translate(Vector(-20, -7, -40));
+		terrain->translate(Vector(-20, -7, -65));
 		this->addObject(terrain);
 
 		Object* firefly = new Object();
 		createFirefly(firefly);
+		firefly->translate(Vector(0, 0, -50));
 		this->addObject(firefly);
 
 		Object* stork = new Object();
 		createStork(stork);
 		stork->rotate(180, Vector(0, 1, 0));
-		stork->translate(Vector(-4, 0, -25));
+		stork->translate(Vector(-4, 0, -50));
 		this->addObject(stork);
 
 		Object* frog = new Object();
 		createFrog(frog);
 		frog->scale(Vector(0.3, 0.3, 0.3));
 		frog->rotate(-45, Vector(0, 1, 0));
-		frog->translate(Vector(-8, -6, -32));
+		frog->translate(Vector(-8, -6, -57));
 		this->addObject(frog);
 
 		Object* frog2 = new Object();
 		createFrog(frog2);
 		frog2->scale(Vector(0.3, 0.3, 0.3));
 		frog2->rotate(-135, Vector(0, 1, 0));
-		frog2->translate(Vector(4, -6, -25));
+		frog2->translate(Vector(4, -6, -50));
 		this->addObject(frog2);
 	}
 	void createFirefly(Object* firefly){
 		Ellipsoid* fireflyBody = new Ellipsoid(Point(8, 8, 0), 0.2, 0.2, 0.2);
 		fireflyBody->setMaterial(fireflyShine);
 		firefly->addSurface(fireflyBody);
-		firefly->translate(Vector(0, 0, -25));
 	}
 	void createTerrain(Object* terrain){
 		Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 0, 1), 40, 40);
@@ -656,6 +674,18 @@ public:
 		stork->addSurface(eyeR);
 		stork->addSurface(beak);
 	}
+
+	void simulateWorld(float old_time, float current_time){
+		for (float timeSlotBeginning = old_time; timeSlotBeginning < current_time; timeSlotBeginning += DELTA_TIME){
+			float timeSlotEnd = fminf(timeSlotBeginning + DELTA_TIME, current_time);
+			float dt = timeSlotEnd - timeSlotBeginning;
+			for (int i = 0; i < objectCount; ++i){
+				objects[i]->animate(dt);
+			}
+		}
+
+
+	}
 };
 
 Scene* scene;
@@ -663,6 +693,9 @@ Scene* scene;
 const int screenWidth = 600;
 const int screenHeight = 600;
 Color image[screenWidth*screenHeight];
+
+float old_time;
+float current_time;
 
 void onInitialization() {
 	orangeRed = new Material();
@@ -724,6 +757,8 @@ void onInitialization() {
 	glEnable(GL_LIGHT1);
 	scene = new Scene();
 	scene->build();
+
+	old_time = current_time = 0;
 }
 
 void onDisplay() {
@@ -739,7 +774,14 @@ void onKeyboard(unsigned char key, int x, int y) {}
 void onKeyboardUp(unsigned char key, int x, int y) {}
 void onMouse(int button, int state, int x, int y) {}
 void onMouseMotion(int x, int y){}
-void onIdle() {}
+void onIdle() {
+	old_time = current_time;
+	current_time = glutGet(GLUT_ELAPSED_TIME);
+
+	scene->simulateWorld(old_time, current_time);
+
+	glutPostRedisplay();
+}
 // ...Idaig modosithatod
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
