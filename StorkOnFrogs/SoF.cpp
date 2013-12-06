@@ -4,7 +4,7 @@
 // sorokon beluli reszben celszeru garazdalkodni, mert a tobbit ugyis toroljuk. 
 // A beadott program csak ebben a fajlban lehet, a fajl 1 byte-os ASCII karaktereket tartalmazhat. 
 // Tilos:
-// - mast "beincludolni", illetve mas konyvtarat hasznalni
+// - mast "beinleftUpperLegdolni", illetve mas konyvtarat hasznalni
 // - faljmuveleteket vegezni (printf is fajlmuvelet!)
 // - new operatort hivni az onInitialization fA1ggvA©nyt kivA©ve, a lefoglalt adat korrekt felszabadA­tA!sa nA©lkA1l 
 // - felesleges programsorokat a beadott programban hagyni
@@ -517,6 +517,67 @@ public:
 	}
 };
 
+class Stork : public Object{
+	//body parts
+	StorkBody* storkbody;
+	Ellipsoid* head;
+	Cone* beak;
+	Ellipsoid* leftEye;
+	Ellipsoid* rightEye;
+	Cylinder* leftUpperLeg;
+	Cylinder* leftLowerLeg;
+	Cylinder* rightUpperLeg;
+	Cylinder* rightLowerLeg;
+	//skeleton
+
+public:
+	Stork(){
+		storkbody = new StorkBody();
+		storkbody->setMaterial(storkWhite);
+		head = new Ellipsoid(Point(-5.8, 5.5, 0), 1, 0.6, 0.5);
+		head->setMaterial(storkWhite);
+		beak = new Cone(Point(-6.5, 5.5, 0), 3, 0.25);
+		float angleToZ = U_MAX / 4;
+		float angleToX = V_MAX / 8;
+		Point eye = head->surfacePoint(-angleToZ, -angleToX);
+		Point eye2 = head->surfacePoint(-angleToZ * 3, -angleToX);
+		leftEye = new Ellipsoid(eye, 0.1, 0.1, 0.1);
+		rightEye = new Ellipsoid(eye2, 0.1, 0.1, 0.1);
+		leftEye->setMaterial(eyeBlack);
+		rightEye->setMaterial(eyeBlack);
+		beak->setMaterial(orangeRed);
+		Point p1, p2, p3, p4, p5;
+		p1 = Point(-1.5, 0.5, 0);
+		p2 = Point(0.25, -3, 0);
+		p3 = Point(-2, -5.25, 0);
+		Vector v1, v2, v3, v4;
+		v1 = p2 - p1;
+		v2 = p3 - p2;
+		v3 = (Point(-1.3, -3.8, 0) - Point(-1.5, 0.5, 0)).normalized();
+		v4 = (Point(-1.2, -6.6, 0) - Point(-1.3, -3.8, 0)).normalized();
+		p4 = p1 + v3*v1.Length();
+		p5 = p4 + v4*v2.Length();
+		leftUpperLeg = new Cylinder(p1 + Point(0, 0, 0.75), v1, v1.Length(), 0.2);
+		leftLowerLeg = new Cylinder(p2 + Point(0, 0, 0.75), v2, v2.Length(), 0.2);
+		rightUpperLeg = new Cylinder(p1 + Point(0, 0, -0.75), v3, v1.Length(), 0.2);
+		rightLowerLeg = new Cylinder(p4 + Point(0, 0, -0.75), v4, v2.Length(), 0.2);
+		leftUpperLeg->setMaterial(orangeRed);
+		leftLowerLeg->setMaterial(orangeRed);
+		rightUpperLeg->setMaterial(orangeRed);
+		rightLowerLeg->setMaterial(orangeRed);
+		storkbody->setTexture(storkTexture);
+		this->addSurface(leftUpperLeg);
+		this->addSurface(leftLowerLeg);
+		this->addSurface(rightUpperLeg);
+		this->addSurface(rightLowerLeg);
+		this->addSurface(storkbody);
+		this->addSurface(head);
+		this->addSurface(leftEye);
+		this->addSurface(rightEye);
+		this->addSurface(beak);
+	}
+};
+
 class Camera{
 	float fovy;
 	float aspect;
@@ -574,11 +635,16 @@ public:
 		firefly->translate(Vector(0, 0, -50));
 		this->addObject(firefly);
 
-		Object* stork = new Object();
-		createStork(stork);
+		Stork* stork = new Stork();
 		stork->rotate(180, Vector(0, 1, 0));
 		stork->translate(Vector(-4, 0, -50));
 		this->addObject(stork);
+
+		//Object* stork = new Object();
+		//createStork(stork);
+		//stork->rotate(180, Vector(0, 1, 0));
+		//stork->translate(Vector(-4, 0, -50));
+		//this->addObject(stork);
 
 		Object* frog = new Object();
 		createFrog(frog);
@@ -618,61 +684,16 @@ public:
 		float angleToX = V_MAX / 8;
 		Point eye = frogHead->surfacePoint(angleToZ, angleToX);
 		Point eye2 = frogHead->surfacePoint(angleToZ * 3, angleToX);
-		Ellipsoid* eyeL = new Ellipsoid(eye, 0.7, 0.7, 0.7);
-		Ellipsoid* eyeR = new Ellipsoid(eye2, 0.7, 0.7, 0.7);
-		eyeL->setMaterial(eyeBlack);
-		eyeR->setMaterial(eyeBlack);
+		Ellipsoid* leftEye = new Ellipsoid(eye, 0.7, 0.7, 0.7);
+		Ellipsoid* rightEye = new Ellipsoid(eye2, 0.7, 0.7, 0.7);
+		leftEye->setMaterial(eyeBlack);
+		rightEye->setMaterial(eyeBlack);
 		frog->addSurface(frogBody);
 		frog->addSurface(frogHead);
 		frog->addSurface(frontLegR);
 		frog->addSurface(frontLegL);
-		frog->addSurface(eyeL);
-		frog->addSurface(eyeR);
-	}
-	void createStork(Object* stork){
-		StorkBody* storkbody = new StorkBody();
-		storkbody->setMaterial(storkWhite);
-		Ellipsoid* head = new Ellipsoid(Point(-5.8, 5.5, 0), 1, 0.6, 0.5);
-		head->setMaterial(storkWhite);
-		Cone* beak = new Cone(Point(-6.5, 5.5, 0), 3, 0.25);
-		float angleToZ = U_MAX / 4;
-		float angleToX = V_MAX / 8;
-		Point eye = head->surfacePoint(-angleToZ, -angleToX);
-		Point eye2 = head->surfacePoint(-angleToZ * 3, -angleToX);
-		Ellipsoid* eyeL = new Ellipsoid(eye, 0.1, 0.1, 0.1);
-		Ellipsoid* eyeR = new Ellipsoid(eye2, 0.1, 0.1, 0.1);
-		eyeL->setMaterial(eyeBlack);
-		eyeR->setMaterial(eyeBlack);
-		beak->setMaterial(orangeRed);
-		Point p1, p2, p3, p4, p5;
-		p1 = Point(-1.5, 0.5, 0);
-		p2 = Point(0.25, -3, 0);
-		p3 = Point(-2, -5.25, 0);
-		Vector v1, v2, v3, v4;
-		v1 = p2 - p1;
-		v2 = p3 - p2;
-		v3 = (Point(-1.3, -3.8, 0) - Point(-1.5, 0.5, 0)).normalized();
-		v4 = (Point(-1.2, -6.6, 0) - Point(-1.3, -3.8, 0)).normalized();
-		p4 = p1 + v3*v1.Length();
-		p5 = p4 + v4*v2.Length();
-		Cylinder* clu = new Cylinder(p1 + Point(0, 0, 0.75), v1, v1.Length(), 0.2);
-		Cylinder* cld = new Cylinder(p2 + Point(0, 0, 0.75), v2, v2.Length(), 0.2);
-		Cylinder* cru = new Cylinder(p1 + Point(0, 0, -0.75), v3, v1.Length(), 0.2);
-		Cylinder* crd = new Cylinder(p4 + Point(0, 0, -0.75), v4, v2.Length(), 0.2);
-		clu->setMaterial(orangeRed);
-		cld->setMaterial(orangeRed);
-		cru->setMaterial(orangeRed);
-		crd->setMaterial(orangeRed);
-		storkbody->setTexture(storkTexture);
-		stork->addSurface(clu);
-		stork->addSurface(cld);
-		stork->addSurface(cru);
-		stork->addSurface(crd);
-		stork->addSurface(storkbody);
-		stork->addSurface(head);
-		stork->addSurface(eyeL);
-		stork->addSurface(eyeR);
-		stork->addSurface(beak);
+		frog->addSurface(leftEye);
+		frog->addSurface(rightEye);
 	}
 
 	void simulateWorld(float old_time, float current_time){
@@ -683,8 +704,6 @@ public:
 				objects[i]->animate(dt);
 			}
 		}
-
-
 	}
 };
 
