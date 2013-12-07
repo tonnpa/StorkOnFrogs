@@ -60,6 +60,8 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
 
+#include <iostream>
+
 #define OBJ_NUM 10
 #define PI 3.14
 #define POINT_CNT 5
@@ -334,8 +336,7 @@ class Plane : public ParamSurface{
 public:
 	Plane(Point ref, Vector i, Vector j, float xMax, float yMax) :
 		leftCorner(ref), xMax(xMax), yMax(yMax){
-		x = i.normalized();
-		y = j.normalized();
+		x = i.normalized();	y = j.normalized();
 	}
 	Point surfacePoint(float u, float v){
 		Point temp = leftCorner + x * u / U_MAX * xMax + y * v / V_MAX*yMax;
@@ -348,18 +349,16 @@ public:
 
 class Ellipsoid : public ParamSurface{
 	float a, b, c;
-	Point center;
 
 public:
-	Ellipsoid(Point center, float a, float b, float c) :
-		center(center), a(a), b(b), c(c){}
+	Ellipsoid(float a, float b, float c) :
+		a(a), b(b), c(c){}
 	Point surfacePoint(float u, float v){
 		u = u / U_MAX * PI;
 		v = v / V_MAX * 2 * PI;
 		float x = a*sin(u)*cos(v);
 		float y = b*sin(u)*sin(v);
 		float z = c*cos(u);
-		//return Point(x, y, z) + center;
 		return Point(x, y, z);
 	}
 	Point surfaceNormal(float u, float v){
@@ -373,16 +372,14 @@ public:
 
 class Cone : public ParamSurface{
 	float h, r;
-	Point center;
 
 public:
-	Cone(Point center, float h, float r) : center(center), h(h), r(r){}
+	Cone(float h, float r) : h(h), r(r){}
 	Point surfacePoint(float u, float v){
 		v = v / V_MAX * 2 * PI;
 		float x = -u / U_MAX*h;
 		float y = (1 - u / U_MAX) * r*sin(v);
 		float z = (1 - u / U_MAX) * r*cos(v);
-		//return Point(x, y, z) + center;
 		return Point(x, y, z);
 	}
 	Vector surfaceNormal(float u, float v){
@@ -395,24 +392,21 @@ public:
 
 class Cylinder : public ParamSurface{
 	float h, r;
-	Point center;
 	Vector a;
 
 public:
-	Cylinder(Point center, Vector a, float h, float r) :
-		center(center), h(h), r(r){
+	Cylinder(Vector a, float h, float r) :
+		h(h), r(r){
 		this->a = a.normalized();
 	}
 	Point surfacePoint(float u, float v){
 		v = v / V_MAX * 2 * PI;
-		//Point axisPoint = center + a*u / U_MAX*h;
 		Point axisPoint = a*u / U_MAX*h;
 		Vector B = Vector(0, 0, 1);
 		Vector N = a%B;
 		return axisPoint + B*r*cos(v) + N*r*sin(v);
 	}
 	Point surfaceNormal(float u, float v){
-		//Point axisPoint = center + a*u / U_MAX*h;
 		Point axisPoint = a*u / U_MAX*h;
 		return surfacePoint(u, v) - axisPoint;
 	}
@@ -440,23 +434,6 @@ public:
 		outline->addPoint(Point(1, 0.75, 0), weightUnit * 3);
 		outline->addPoint(Point(2.9, -1.5, 0), weightUnit * 4);
 		outline->setup();
-
-		//midline = new CTRSpline();
-		//float weightUnit = U_MAX / (POINT_CNT - 1);
-		//midline->addPoint(Point(-5., 5.25, 0), 0);
-		//midline->addPoint(Point(-4.6, 2.6, 0), weightUnit * 1);
-		//midline->addPoint(Point(-2.75, 0.4, 0), weightUnit * 2);
-		//midline->addPoint(Point(0.1, -0.75, 0), weightUnit * 3);
-		//midline->addPoint(Point(2.65, -2.5, 0), weightUnit * 4);
-		//midline->setup();
-
-		//outline = new CTRSpline();
-		//outline->addPoint(Point(-4.8, 5.25, 0), 0);
-		//outline->addPoint(Point(-4.1, 2.8, 0), weightUnit * 1);
-		//outline->addPoint(Point(-1.5, 1.6, 0), weightUnit * 2);
-		//outline->addPoint(Point(1.1, 0, 0), weightUnit * 3);
-		//outline->addPoint(Point(3, -2.25, 0), weightUnit * 4);
-		//outline->setup();
 	}
 	float radius(float u){
 		return (outline->curvePoint(u) - midline->curvePoint(u)).Length();
@@ -480,26 +457,18 @@ public:
 		Vector v4 = surfacePoint(u, v + 1) - r;
 		int valid = 4;
 		if (u == 0){
-			valid--;
-			v1 = Vector(0, 0, 0);
+			valid--; v1 = Vector(0, 0, 0);
 		}
 		if (v == 0){
-			valid--;
-			v2 = Vector(0, 0, 0);
+			valid--; v2 = Vector(0, 0, 0);
 		}
 		if (u == U_MAX - 1){
-			valid--;
-			v3 = Vector(0, 0, 0);
+			valid--; v3 = Vector(0, 0, 0);
 		}
 		if (v == V_MAX - 1){
-			valid--;
-			v4 = Vector(0, 0, 0);
+			valid--; v4 = Vector(0, 0, 0);
 		}
-		Vector n1 = v1%v2;
-		Vector n2 = v2%v3;
-		Vector n3 = v3%v4;
-		Vector n4 = v4%v1;
-
+		Vector n1 = v1%v2; Vector n2 = v2%v3; Vector n3 = v3%v4; Vector n4 = v4%v1;
 		return (n1 + n2 + n3 + n4) / valid;
 	}
 };
@@ -567,28 +536,31 @@ class Stork : public Object{
 	float deltaAngle;
 	int leftLegState;
 	int rightLegState;
+
+	float forward;
+	float up;
 public:
-	Stork(): deltaAngle(4), leftLegState(1), rightLegState(2){
+	Stork(): deltaAngle(4), leftLegState(1), rightLegState(2), forward(0), up(0){
 		storkbody = new StorkBody();
 		storkbody->setMaterial(storkWhite);
 		Point sPL = Point(-2.85, 1.15, 0); Point sPU = Point(-5.9, 6.25, 0); Point beakTip = Point(-7.6, 3.75, 0);
 		spine = new Bone(sPL, 0, Vector(0, 0, 1), (sPU-sPL).Length(), sPU-sPL);
-		head = new Ellipsoid(Point(-5.8, 5.5, 0), 1, 0.6, 0.5);
+		head = new Ellipsoid(1, 0.6, 0.5);
 		head->setMaterial(storkWhite);
 		headBone = new Bone(spine->dir*spine->length, 0, Vector(0, 0, 1), 3.5, beakTip - sPU);
-		beak = new Cone(Point(-6.5, 5.5, 0), 3, 0.25);
+		beak = new Cone(3, 0.25);
 		leftEyePos = head->surfacePoint(-U_MAX / 4, -V_MAX / 8); rightEyePos = head->surfacePoint(-U_MAX / 4 * 3, -V_MAX / 8);
-		leftEye = new Ellipsoid(leftEyePos, 0.1, 0.1, 0.1); rightEye = new Ellipsoid(rightEyePos, 0.1, 0.1, 0.1);
+		leftEye = new Ellipsoid(0.1, 0.1, 0.1); rightEye = new Ellipsoid(0.1, 0.1, 0.1);
 		leftEye->setMaterial(eyeBlack); rightEye->setMaterial(eyeBlack);
 		beakPos = head->surfacePoint(-U_MAX / 2, 0) + Point(0.25, 0, 0);
 		beak->setMaterial(orangeRed);
 		Point leftTop = Point(-1.6, -0.25, 0.75); Point rightTop = Point(-1.6, -0.25, -0.75);
 		Vector legDirection = Vector(0, -1, 0);
 		float upperLegLength = 3; float lowerLegLength = 3;
-		leftUpperLeg = new Cylinder(leftTop, legDirection, upperLegLength, 0.2);
-		leftLowerLeg = new Cylinder(legDirection*upperLegLength, legDirection, lowerLegLength, 0.2);
-		rightUpperLeg = new Cylinder(rightTop, legDirection, upperLegLength, 0.2);
-		rightLowerLeg = new Cylinder(legDirection*upperLegLength, legDirection, lowerLegLength, 0.2);
+		leftUpperLeg = new Cylinder(legDirection, upperLegLength, 0.2);
+		leftLowerLeg = new Cylinder(legDirection, lowerLegLength, 0.2);
+		rightUpperLeg = new Cylinder(legDirection, upperLegLength, 0.2);
+		rightLowerLeg = new Cylinder(legDirection, lowerLegLength, 0.2);
 		leftUpperLeg->setMaterial(orangeRed); leftLowerLeg->setMaterial(orangeRed);
 		rightUpperLeg->setMaterial(orangeRed); rightLowerLeg->setMaterial(orangeRed);
 		storkbody->setTexture(storkTexture);
@@ -623,9 +595,11 @@ public:
 	void draw(){
 		glPushMatrix();
 			transformation.setOpenGL();
+			glTranslatef(forward, up, 0);
+
+			storkbody->draw();
 
 			glPushMatrix();
-				storkbody->draw();
 				glTranslatef(spine->joint_pos.x, spine->joint_pos.y, spine->joint_pos.z);
 				glTranslatef(headBone->joint_pos.x, headBone->joint_pos.y, headBone->joint_pos.z);
 				glRotatef(10, 0, 0, 1);
@@ -697,9 +671,14 @@ public:
 	}
 
 	void animate(float deltaTime){
-		deltaTime /= 2;
+		deltaTime /= 5;
+		float oldFemurAngle = leftFemur->rot_angle;
+		float oldTibiaAngle = leftTibia->rot_angle;
 		nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
 		nextLegState(deltaTime, &rightLegState, rightFemur, rightTibia);
+		forward -= fabs(leftFemur->length * sin(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * sin((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI) - 
+			leftFemur->length * sin(oldFemurAngle / 180.0*PI) - leftTibia->length * sin((oldTibiaAngle + oldFemurAngle) / 180.0*PI));
+		up = leftFemur->length * cos(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * cos((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI);
 	}
 };
 
@@ -752,7 +731,7 @@ public:
 	void build(){
 		Object* terrain = new Object();
 		createTerrain(terrain);
-		terrain->translate(Vector(-20, -7, -35));
+		terrain->translate(Vector(-20, -7, -65));
 		this->addObject(terrain);
 
 		//Object* firefly = new Object();
@@ -762,7 +741,7 @@ public:
 
 		Stork* stork = new Stork();
 		stork->rotate(180, Vector(0, 1, 0));
-		stork->translate(Vector(0, 0, -20));
+		stork->translate(Vector(0, 0, -50));
 		this->addObject(stork);
 
 		//Object* frog = new Object();
@@ -779,41 +758,41 @@ public:
 		//frog2->translate(Vector(4, -6, -50));
 		//this->addObject(frog2);
 	}
-	void createFirefly(Object* firefly){
-		Ellipsoid* fireflyBody = new Ellipsoid(Point(8, 8, 0), 0.2, 0.2, 0.2);
-		fireflyBody->setMaterial(fireflyShine);
-		firefly->addSurface(fireflyBody);
-	}
+	//void createFirefly(Object* firefly){
+	//	Ellipsoid* fireflyBody = new Ellipsoid(Point(8, 8, 0), 0.2, 0.2, 0.2);
+	//	fireflyBody->setMaterial(fireflyShine);
+	//	firefly->addSurface(fireflyBody);
+	//}
 	void createTerrain(Object* terrain){
 		Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 0, 1), 40, 40);
 		plane->setTexture(terrainTexture);
 		terrain->addSurface(plane);
 	}
-	void createFrog(Object* frog){
-		Ellipsoid* frogBody = new Ellipsoid(Point(-2, 1, 0), 5.5, 2.75, 3);
-		Ellipsoid* frogHead = new Ellipsoid(Point(3.75, 1.5, 0), 2, 2, 2.5);
-		Vector fl = Point(0, -5, -1) - Point(-2.25, 0.75, -1);
-		Cylinder* frontLegR = new Cylinder(Point(0, 0.75, -1), fl, fl.Length() * 3 / 4, 1);
-		Cylinder* frontLegL = new Cylinder(Point(0, 0.75, 1), fl, fl.Length() * 3 / 4, 1);
-		frogBody->setMaterial(frogGreen);
-		frogHead->setMaterial(frogGreen);
-		frontLegR->setMaterial(frogGreen);
-		frontLegL->setMaterial(frogGreen);
-		float angleToZ = U_MAX / 4;
-		float angleToX = V_MAX / 8;
-		Point eye = frogHead->surfacePoint(angleToZ, angleToX);
-		Point eye2 = frogHead->surfacePoint(angleToZ * 3, angleToX);
-		Ellipsoid* leftEye = new Ellipsoid(eye, 0.7, 0.7, 0.7);
-		Ellipsoid* rightEye = new Ellipsoid(eye2, 0.7, 0.7, 0.7);
-		leftEye->setMaterial(eyeBlack);
-		rightEye->setMaterial(eyeBlack);
-		frog->addSurface(frogBody);
-		frog->addSurface(frogHead);
-		frog->addSurface(frontLegR);
-		frog->addSurface(frontLegL);
-		frog->addSurface(leftEye);
-		frog->addSurface(rightEye);
-	}
+	//void createFrog(Object* frog){
+	//	Ellipsoid* frogBody = new Ellipsoid(Point(-2, 1, 0), 5.5, 2.75, 3);
+	//	Ellipsoid* frogHead = new Ellipsoid(Point(3.75, 1.5, 0), 2, 2, 2.5);
+	//	Vector fl = Point(0, -5, -1) - Point(-2.25, 0.75, -1);
+	//	Cylinder* frontLegR = new Cylinder(Point(0, 0.75, -1), fl, fl.Length() * 3 / 4, 1);
+	//	Cylinder* frontLegL = new Cylinder(Point(0, 0.75, 1), fl, fl.Length() * 3 / 4, 1);
+	//	frogBody->setMaterial(frogGreen);
+	//	frogHead->setMaterial(frogGreen);
+	//	frontLegR->setMaterial(frogGreen);
+	//	frontLegL->setMaterial(frogGreen);
+	//	float angleToZ = U_MAX / 4;
+	//	float angleToX = V_MAX / 8;
+	//	Point eye = frogHead->surfacePoint(angleToZ, angleToX);
+	//	Point eye2 = frogHead->surfacePoint(angleToZ * 3, angleToX);
+	//	Ellipsoid* leftEye = new Ellipsoid(eye, 0.7, 0.7, 0.7);
+	//	Ellipsoid* rightEye = new Ellipsoid(eye2, 0.7, 0.7, 0.7);
+	//	leftEye->setMaterial(eyeBlack);
+	//	rightEye->setMaterial(eyeBlack);
+	//	frog->addSurface(frogBody);
+	//	frog->addSurface(frogHead);
+	//	frog->addSurface(frontLegR);
+	//	frog->addSurface(frontLegL);
+	//	frog->addSurface(leftEye);
+	//	frog->addSurface(rightEye);
+	//}
 
 	void simulateWorld(float old_time, float current_time){
 		for (float timeSlotBeginning = old_time; timeSlotBeginning < current_time; timeSlotBeginning += DELTA_TIME){
