@@ -60,8 +60,6 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
 
-#include <iostream>
-
 #define OBJ_NUM 10
 #define PI 3.14
 #define POINT_CNT 5
@@ -159,7 +157,6 @@ class CTRSpline{
 	Point p[POINT_CNT];
 	Vector v[POINT_CNT];
 	Vector a2[POINT_CNT - 1], a3[POINT_CNT - 1];
-
 	int pointCount;
 	int functionCount;
 
@@ -258,11 +255,9 @@ Texture* terrainTexture;
 Texture* storkTexture;
 
 class Bone {
-	float length;
-	float rot_angle;
-	Vector rot_axis;
-	Vector joint_pos;
-	Vector dir;
+	float length, rot_angle;
+	Vector rot_axis, joint_pos, dir;
+
 public:
 	Bone(Vector joint_pos, float rot_angle, Vector rot_axis, float length, Vector direction): 
 		joint_pos(joint_pos), rot_angle(rot_angle), length(length) {
@@ -276,8 +271,7 @@ class ParamSurface{
 	Texture* texture;
 	Material* material;
 
-	bool isTextured;
-	bool isMaterialized;
+	bool isTextured, isMaterialized;
 public:
 	ParamSurface() :texture(false), isMaterialized(false){}
 
@@ -292,38 +286,30 @@ public:
 		this->material = material;
 	}
 	void draw(){
-		if (isTextured){
+		if (isTextured)
 			texture->setOpenGL();
-		}
 		else
 			glDisable(GL_TEXTURE_2D);
-		if (isMaterialized){
+		if (isMaterialized)
 			material->setOpenGL();
-		}
 		else
 			glDisable(GL_LIGHTING);
 
 		glBegin(GL_TRIANGLES);
 		for (int u = 0; u < U_MAX; ++u){
 			for (int v = 0; v < V_MAX; ++v){
-				vertexOpenGL(u, v);
-				vertexOpenGL(u, v + 1);
-				vertexOpenGL(u + 1, v + 1);
+				vertexOpenGL(u, v);	vertexOpenGL(u, v + 1);vertexOpenGL(u + 1, v + 1);
 
-				vertexOpenGL(u + 1, v + 1);
-				vertexOpenGL(u + 1, v);
-				vertexOpenGL(u, v);
+				vertexOpenGL(u + 1, v + 1);	vertexOpenGL(u + 1, v);vertexOpenGL(u, v);
 			}
 		}
 		glEnd();
 	}
 	void vertexOpenGL(float u, float v){
-		if (isTextured){
+		if (isTextured)
 			glTexCoord2d(u / U_MAX, v / V_MAX);
-		}
-		if (isMaterialized){
+		if (isMaterialized)
 			glVector3f(surfaceNormal(u, v));
-		}
 		glPoint3f(surfacePoint(u, v));
 	}
 };
@@ -533,14 +519,12 @@ class Stork : public Object{
 	Point beakPos;
 
 	//animation variables
-	float deltaAngle;
-	int leftLegState;
-	int rightLegState;
+	float deltaAngle, forward, up, turnAngle, turnState;
+	int leftLegState, rightLegState;
+	Point start;
 
-	float forward;
-	float up;
 public:
-	Stork(): deltaAngle(4), leftLegState(1), rightLegState(2), forward(0), up(0){
+	Stork() : deltaAngle(4), leftLegState(1), rightLegState(2), forward(0), up(0), turnAngle(0), turnState(0), start(Point(0, 0, 0)){
 		storkbody = new StorkBody();
 		storkbody->setMaterial(storkWhite);
 		Point sPL = Point(-2.85, 1.15, 0); Point sPU = Point(-5.9, 6.25, 0); Point beakTip = Point(-7.6, 3.75, 0);
@@ -575,7 +559,6 @@ public:
 		this->addSurface(leftEye); this->addSurface(rightEye);
 		this->addSurface(beak);
 	}
-
 	void drawHead(){
 		head->draw();
 		glPushMatrix();
@@ -591,12 +574,24 @@ public:
 			beak->draw();
 		glPopMatrix();
 	}
-
+	void turn(float phi){
+		turnAngle = phi;
+		transformation.phi += phi;
+	}
 	void draw(){
 		glPushMatrix();
 			transformation.setOpenGL();
+			if (turnAngle != 0){
+				turnState += turnAngle;
+				turnAngle = 0;
+				start = Point(forward, 0, 0);
+				forward = 0;
+			}
+			//glTranslatef(forward, up, 0);
+			glTranslatef(start.x, start.y, start.z);
 			glTranslatef(forward, up, 0);
-
+			glRotatef(turnState, 0, 1, 0);
+			glTranslatef(-start.x, -start.y, -start.z);
 			storkbody->draw();
 
 			glPushMatrix();
@@ -626,7 +621,6 @@ public:
 
 		glPopMatrix();
 	}
-
 	void nextLegState(float deltaTime, int* currentLegState, Bone* femur, Bone* tibia){
 		float dtu, dtl;
 
@@ -649,8 +643,7 @@ public:
 				femur->rot_angle = 50;
 				tibia->rot_angle = -95;
 			}
-			dtu = deltaTime / (200.0 / 5.0);
-			dtl = deltaTime / (200.0 / 24.00);
+			dtu = deltaTime / (200.0 / 5.0); dtl = deltaTime / (200.0 / 24.00);
 			femur->rot_angle += deltaAngle * dtu;
 			tibia->rot_angle -= deltaAngle * dtl;
 			break;
@@ -660,8 +653,7 @@ public:
 				femur->rot_angle = -30;
 				tibia->rot_angle = 0;
 			}
-			dtu = deltaTime / (300.0 / 20.0);
-			dtl = deltaTime / (300.0 / 24.00);
+			dtu = deltaTime / (300.0 / 20.0); dtl = deltaTime / (300.0 / 24.00);
 			femur->rot_angle -= deltaAngle * dtu;
 			tibia->rot_angle += deltaAngle * dtl;
 			break;
@@ -669,27 +661,31 @@ public:
 			break;
 		}
 	}
-
 	void animate(float deltaTime){
-		deltaTime /= 5;
-		float oldFemurAngle = leftFemur->rot_angle;
-		float oldTibiaAngle = leftTibia->rot_angle;
+		deltaTime /= 2;
+		float oldFemurAngle = leftFemur->rot_angle; float oldTibiaAngle = leftTibia->rot_angle;
+		float oldFemurAngle2 = rightFemur->rot_angle; float oldTibiaAngle2 = rightTibia->rot_angle;
 		nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
 		nextLegState(deltaTime, &rightLegState, rightFemur, rightTibia);
-		forward -= fabs(leftFemur->length * sin(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * sin((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI) - 
-			leftFemur->length * sin(oldFemurAngle / 180.0*PI) - leftTibia->length * sin((oldTibiaAngle + oldFemurAngle) / 180.0*PI));
-		up = leftFemur->length * cos(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * cos((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI);
+		//stepping with left leg
+		if (leftLegState == 3 || leftLegState ==2){
+			forward -= fabs(leftFemur->length * sin(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * sin((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI) -
+				leftFemur->length * sin(oldFemurAngle / 180.0*PI) - leftTibia->length * sin((oldTibiaAngle + oldFemurAngle) / 180.0*PI));
+			up = rightFemur->length * cos(rightFemur->rot_angle / 180.0*PI) + rightTibia->length * cos((rightTibia->rot_angle + rightFemur->rot_angle) / 180.0*PI);
+		}
+		//stepping with right leg
+		else{
+			forward -= fabs(rightFemur->length * sin(rightFemur->rot_angle / 180.0*PI) + rightTibia->length * sin((rightTibia->rot_angle + rightFemur->rot_angle) / 180.0*PI) -	rightFemur->length * sin(oldFemurAngle2 / 180.0*PI) - rightTibia->length * sin((oldTibiaAngle2 + oldFemurAngle2) / 180.0*PI));
+			up = leftFemur->length * cos(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * cos((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI);
+		}
 	}
 };
 
 class Camera{
-	float fovy;
-	float aspect;
-	float zNear;
-	float zFar;
-
+	float fovy, aspect, zNear, zFar;
 	Point eye, lookAt;
 	Vector vup;
+
 public:
 	Camera(Point eye, Point lookAt, Vector vup, float fov, float asp, float fp, float bp) :
 		eye(eye), lookAt(lookAt), vup(vup), fovy(fov), aspect(asp), zNear(fp), zFar(bp){};
@@ -707,10 +703,11 @@ class Scene{
 	Object* objects[OBJ_NUM];
 	Camera* camera;
 	int objectCount;
+	Stork* stork;
 
 public:
 	Scene() :objectCount(0){
-		camera = new Camera(Point(0, 0, 0), Point(0, 0, -50), Vector(0, 1, 0), 54, 1, 1, 100);
+		camera = new Camera(Point(0, 20, 0), Point(0, 0, -50), Vector(0, 1, 0), 54, 1, 1, 100);
 	}
 	void addObject(Object* newObject){
 		if (objectCount < OBJ_NUM){
@@ -731,7 +728,7 @@ public:
 	void build(){
 		Object* terrain = new Object();
 		createTerrain(terrain);
-		terrain->translate(Vector(-20, -7, -65));
+		terrain->translate(Vector(-20, -0.5, -65));
 		this->addObject(terrain);
 
 		//Object* firefly = new Object();
@@ -739,7 +736,7 @@ public:
 		//firefly->translate(Vector(0, 0, -50));
 		//this->addObject(firefly);
 
-		Stork* stork = new Stork();
+		stork = new Stork();
 		stork->rotate(180, Vector(0, 1, 0));
 		stork->translate(Vector(0, 0, -50));
 		this->addObject(stork);
@@ -802,6 +799,9 @@ public:
 				objects[i]->animate(dt);
 			}
 		}
+	}
+	void rotateStork(float phi){
+		stork->turn(phi);
 	}
 };
 
@@ -888,7 +888,14 @@ void onDisplay() {
 }
 
 void onKeyboard(unsigned char key, int x, int y) {}
-void onKeyboardUp(unsigned char key, int x, int y) {}
+void onKeyboardUp(unsigned char key, int x, int y) {
+	if (key == 'b') {
+		scene->rotateStork(10);
+	}
+	else if (key == 'j'){
+		scene->rotateStork(-10);
+	}
+}
 void onMouse(int button, int state, int x, int y) {}
 void onMouseMotion(int x, int y){}
 void onIdle() {
