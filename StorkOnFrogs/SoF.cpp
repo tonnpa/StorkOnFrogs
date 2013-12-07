@@ -256,18 +256,16 @@ Texture* terrainTexture;
 Texture* storkTexture;
 
 class Bone {
-	float		    length;
-	float			rot_angle;
-	Vector		    rot_axis;
-	Vector			joint_pos;
+	float length;
+	float rot_angle;
+	Vector rot_axis;
+	Vector joint_pos;
+	Vector dir;
 public:
-	Bone(Vector joint_pos0, float bone_length, float rot_angle0, Vector rot_axis0) {
-		joint_pos = joint_pos0;
-		length = bone_length;
-		rot_angle = rot_angle0;
-		rot_axis = rot_axis0;
-	}
-	void draw() {
+	Bone(Vector joint_pos, float rot_angle, Vector rot_axis, float length, Vector direction): 
+		joint_pos(joint_pos), rot_angle(rot_angle), length(length) {
+		this->rot_axis = rot_axis.normalized();
+		this->dir = direction.normalized();
 	}
 	friend class Stork;
 };
@@ -361,7 +359,8 @@ public:
 		float x = a*sin(u)*cos(v);
 		float y = b*sin(u)*sin(v);
 		float z = c*cos(u);
-		return Point(x, y, z) + center;
+		//return Point(x, y, z) + center;
+		return Point(x, y, z);
 	}
 	Point surfaceNormal(float u, float v){
 		u = u / U_MAX * PI;
@@ -383,7 +382,8 @@ public:
 		float x = -u / U_MAX*h;
 		float y = (1 - u / U_MAX) * r*sin(v);
 		float z = (1 - u / U_MAX) * r*cos(v);
-		return Point(x, y, z) + center;
+		//return Point(x, y, z) + center;
+		return Point(x, y, z);
 	}
 	Vector surfaceNormal(float u, float v){
 		v = v / V_MAX * 2 * PI;
@@ -426,20 +426,37 @@ public:
 	StorkBody(){
 		midline = new CTRSpline();
 		float weightUnit = U_MAX / (POINT_CNT - 1);
-		midline->addPoint(Point(-5., 5.25, 0), 0);
-		midline->addPoint(Point(-4.6, 2.6, 0), weightUnit * 1);
-		midline->addPoint(Point(-2.75, 0.4, 0), weightUnit * 2);
-		midline->addPoint(Point(0.1, -0.75, 0), weightUnit * 3);
-		midline->addPoint(Point(2.65, -2.5, 0), weightUnit * 4);
+		midline->addPoint(Point(-5.1, 6, 0), 0);
+		midline->addPoint(Point(-4.7, 3.35, 0), weightUnit * 1);
+		midline->addPoint(Point(-2.85, 1.15, 0), weightUnit * 2);
+		midline->addPoint(Point(0, 0, 0), weightUnit * 3);
+		midline->addPoint(Point(2.55, -1.75, 0), weightUnit * 4);
 		midline->setup();
 
 		outline = new CTRSpline();
-		outline->addPoint(Point(-4.8, 5.25, 0), 0);
-		outline->addPoint(Point(-4.1, 2.8, 0), weightUnit * 1);
-		outline->addPoint(Point(-1.5, 1.6, 0), weightUnit * 2);
-		outline->addPoint(Point(1.1, 0, 0), weightUnit * 3);
-		outline->addPoint(Point(3, -2.25, 0), weightUnit * 4);
+		outline->addPoint(Point(-4.9, 6, 0), 0);
+		outline->addPoint(Point(-4.2, 3.55, 0), weightUnit * 1);
+		outline->addPoint(Point(-1.6, 2.35, 0), weightUnit * 2);
+		outline->addPoint(Point(1, 0.75, 0), weightUnit * 3);
+		outline->addPoint(Point(2.9, -1.5, 0), weightUnit * 4);
 		outline->setup();
+
+		//midline = new CTRSpline();
+		//float weightUnit = U_MAX / (POINT_CNT - 1);
+		//midline->addPoint(Point(-5., 5.25, 0), 0);
+		//midline->addPoint(Point(-4.6, 2.6, 0), weightUnit * 1);
+		//midline->addPoint(Point(-2.75, 0.4, 0), weightUnit * 2);
+		//midline->addPoint(Point(0.1, -0.75, 0), weightUnit * 3);
+		//midline->addPoint(Point(2.65, -2.5, 0), weightUnit * 4);
+		//midline->setup();
+
+		//outline = new CTRSpline();
+		//outline->addPoint(Point(-4.8, 5.25, 0), 0);
+		//outline->addPoint(Point(-4.1, 2.8, 0), weightUnit * 1);
+		//outline->addPoint(Point(-1.5, 1.6, 0), weightUnit * 2);
+		//outline->addPoint(Point(1.1, 0, 0), weightUnit * 3);
+		//outline->addPoint(Point(3, -2.25, 0), weightUnit * 4);
+		//outline->setup();
 	}
 	float radius(float u){
 		return (outline->curvePoint(u) - midline->curvePoint(u)).Length();
@@ -540,89 +557,87 @@ class Stork : public Object{
 	Bone* rightFemur;
 	Bone* leftTibia;
 	Bone* rightTibia;
+	Bone* spine;
+	Bone* headBone;
+	Point leftEyePos;
+	Point rightEyePos;
+	Point beakPos;
 
 	//animation variables
 	float deltaAngle;
 	int leftLegState;
 	int rightLegState;
-
-	float deltaLeftLegAngle;
-	float deltaRightLegAngle;
 public:
-	Stork() : deltaLeftLegAngle(3), deltaRightLegAngle(-3){
-		deltaAngle = 4;
-		leftLegState = 1;
-		rightLegState = 2;
-
+	Stork(): deltaAngle(4), leftLegState(1), rightLegState(2){
 		storkbody = new StorkBody();
 		storkbody->setMaterial(storkWhite);
+		Point sPL = Point(-2.85, 1.15, 0); Point sPU = Point(-5.9, 6.25, 0); Point beakTip = Point(-7.6, 3.75, 0);
+		spine = new Bone(sPL, 0, Vector(0, 0, 1), (sPU-sPL).Length(), sPU-sPL);
 		head = new Ellipsoid(Point(-5.8, 5.5, 0), 1, 0.6, 0.5);
 		head->setMaterial(storkWhite);
+		headBone = new Bone(spine->dir*spine->length, 0, Vector(0, 0, 1), 3.5, beakTip - sPU);
 		beak = new Cone(Point(-6.5, 5.5, 0), 3, 0.25);
-		float angleToZ = U_MAX / 4;
-		float angleToX = V_MAX / 8;
-		Point eye = head->surfacePoint(-angleToZ, -angleToX);
-		Point eye2 = head->surfacePoint(-angleToZ * 3, -angleToX);
-		leftEye = new Ellipsoid(eye, 0.1, 0.1, 0.1);
-		rightEye = new Ellipsoid(eye2, 0.1, 0.1, 0.1);
-		leftEye->setMaterial(eyeBlack);
-		rightEye->setMaterial(eyeBlack);
+		leftEyePos = head->surfacePoint(-U_MAX / 4, -V_MAX / 8); rightEyePos = head->surfacePoint(-U_MAX / 4 * 3, -V_MAX / 8);
+		leftEye = new Ellipsoid(leftEyePos, 0.1, 0.1, 0.1); rightEye = new Ellipsoid(rightEyePos, 0.1, 0.1, 0.1);
+		leftEye->setMaterial(eyeBlack); rightEye->setMaterial(eyeBlack);
+		beakPos = head->surfacePoint(-U_MAX / 2, 0) + Point(0.25, 0, 0);
 		beak->setMaterial(orangeRed);
-		Point leftTop = Point(-1.5, -1, 0.75);
-		Point rightTop = Point(-1.5, -1, -0.75);
+		Point leftTop = Point(-1.6, -0.25, 0.75); Point rightTop = Point(-1.6, -0.25, -0.75);
 		Vector legDirection = Vector(0, -1, 0);
-		float upperLegLength = 3;
-		float lowerLegLength = 3;
+		float upperLegLength = 3; float lowerLegLength = 3;
 		leftUpperLeg = new Cylinder(leftTop, legDirection, upperLegLength, 0.2);
-		//leftLowerLeg = new Cylinder(leftTop + legDirection*upperLegLength, legDirection, lowerLegLength, 0.2);
 		leftLowerLeg = new Cylinder(legDirection*upperLegLength, legDirection, lowerLegLength, 0.2);
 		rightUpperLeg = new Cylinder(rightTop, legDirection, upperLegLength, 0.2);
-		//rightLowerLeg = new Cylinder(rightTop + legDirection*upperLegLength, legDirection, lowerLegLength, 0.2);
 		rightLowerLeg = new Cylinder(legDirection*upperLegLength, legDirection, lowerLegLength, 0.2);
-		leftUpperLeg->setMaterial(orangeRed);
-		leftLowerLeg->setMaterial(orangeRed);
-		rightUpperLeg->setMaterial(orangeRed);
-		rightLowerLeg->setMaterial(orangeRed);
+		leftUpperLeg->setMaterial(orangeRed); leftLowerLeg->setMaterial(orangeRed);
+		rightUpperLeg->setMaterial(orangeRed); rightLowerLeg->setMaterial(orangeRed);
 		storkbody->setTexture(storkTexture);
-		leftFemur = new Bone(leftTop, upperLegLength, -30, Vector(0, 0, 1));
-		rightFemur = new Bone(rightTop, upperLegLength, 30, Vector(0, 0, 1));
-		//leftTibia = new Bone(leftTop + legDirection*upperLegLength, lowerLegLength, 0, Vector(0, 0, 1));
-		//rightTibia = new Bone(rightTop + legDirection*upperLegLength, lowerLegLength, 0, Vector(0, 0, 1));
-		leftTibia = new Bone(legDirection*upperLegLength, lowerLegLength, 0, Vector(0, 0, 1));
-		rightTibia = new Bone(legDirection*upperLegLength, lowerLegLength, 0, Vector(0, 0, 1));
-		this->addSurface(leftUpperLeg);
-		this->addSurface(leftLowerLeg);
-		this->addSurface(rightUpperLeg);
-		this->addSurface(rightLowerLeg);
+		leftFemur = new Bone(leftTop, -30, Vector(0, 0, 1), upperLegLength, legDirection);
+		rightFemur = new Bone(rightTop, 30, Vector(0, 0, 1), upperLegLength, legDirection);
+		leftTibia = new Bone(legDirection*upperLegLength, 0, Vector(0, 0, 1), lowerLegLength, legDirection);
+		rightTibia = new Bone(legDirection*upperLegLength, 0, Vector(0, 0, 1), lowerLegLength, legDirection);
+		this->addSurface(leftUpperLeg); this->addSurface(leftLowerLeg);
+		this->addSurface(rightUpperLeg); this->addSurface(rightLowerLeg);
 		this->addSurface(storkbody);
 		this->addSurface(head);
-		this->addSurface(leftEye);
-		this->addSurface(rightEye);
+		this->addSurface(leftEye); this->addSurface(rightEye);
 		this->addSurface(beak);
 	}
 
 	void drawHead(){
 		head->draw();
-		leftEye->draw();
-		rightEye->draw();
-		beak->draw();
+		glPushMatrix();
+			glTranslatef(leftEyePos.x, leftEyePos.y, leftEyePos.z);
+			leftEye->draw();
+		glPopMatrix();
+		glPushMatrix();
+			glTranslatef(rightEyePos.x, rightEyePos.y, rightEyePos.z);
+			rightEye->draw();
+		glPopMatrix();
+		glPushMatrix();
+			glTranslatef(beakPos.x, beakPos.y, beakPos.z);
+			beak->draw();
+		glPopMatrix();
 	}
 
 	void draw(){
 		glPushMatrix();
 			transformation.setOpenGL();
 
-			drawHead();
-			//storkbody->draw();
+			glPushMatrix();
+				storkbody->draw();
+				glTranslatef(spine->joint_pos.x, spine->joint_pos.y, spine->joint_pos.z);
+				glTranslatef(headBone->joint_pos.x, headBone->joint_pos.y, headBone->joint_pos.z);
+				glRotatef(10, 0, 0, 1);
+				drawHead();
+			glPopMatrix();
 
 			glPushMatrix();
 				glTranslatef(leftFemur->joint_pos.x, leftFemur->joint_pos.y, leftFemur->joint_pos.z);
 				glRotatef(leftFemur->rot_angle, leftFemur->rot_axis.x, leftFemur->rot_axis.y, leftFemur->rot_axis.z);
-				//glTranslatef(-leftFemur->joint_pos.x, -leftFemur->joint_pos.y, -leftFemur->joint_pos.z);
 				leftUpperLeg->draw();
 				glTranslatef(leftTibia->joint_pos.x, leftTibia->joint_pos.y, leftTibia->joint_pos.z);
 				glRotatef(leftTibia->rot_angle, leftTibia->rot_axis.x, leftTibia->rot_axis.y, leftTibia->rot_axis.z);
-				//glTranslatef(-leftTibia->joint_pos.x, -leftTibia->joint_pos.y, -leftTibia->joint_pos.z);
 				leftLowerLeg->draw();
 			glPopMatrix();
 
@@ -682,7 +697,7 @@ public:
 	}
 
 	void animate(float deltaTime){
-		deltaTime = deltaTime / 2;
+		deltaTime /= 2;
 		nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
 		nextLegState(deltaTime, &rightLegState, rightFemur, rightTibia);
 	}
@@ -737,32 +752,32 @@ public:
 	void build(){
 		Object* terrain = new Object();
 		createTerrain(terrain);
-		terrain->translate(Vector(-20, -7, -65));
+		terrain->translate(Vector(-20, -7, -35));
 		this->addObject(terrain);
 
-		Object* firefly = new Object();
-		createFirefly(firefly);
-		firefly->translate(Vector(0, 0, -50));
-		this->addObject(firefly);
+		//Object* firefly = new Object();
+		//createFirefly(firefly);
+		//firefly->translate(Vector(0, 0, -50));
+		//this->addObject(firefly);
 
 		Stork* stork = new Stork();
 		stork->rotate(180, Vector(0, 1, 0));
-		stork->translate(Vector(-4, 0, -50));
+		stork->translate(Vector(0, 0, -20));
 		this->addObject(stork);
 
-		Object* frog = new Object();
-		createFrog(frog);
-		frog->scale(Vector(0.3, 0.3, 0.3));
-		frog->rotate(-45, Vector(0, 1, 0));
-		frog->translate(Vector(-8, -6, -57));
-		this->addObject(frog);
+		//Object* frog = new Object();
+		//createFrog(frog);
+		//frog->scale(Vector(0.3, 0.3, 0.3));
+		//frog->rotate(-45, Vector(0, 1, 0));
+		//frog->translate(Vector(-8, -6, -57));
+		//this->addObject(frog);
 
-		Object* frog2 = new Object();
-		createFrog(frog2);
-		frog2->scale(Vector(0.3, 0.3, 0.3));
-		frog2->rotate(-135, Vector(0, 1, 0));
-		frog2->translate(Vector(4, -6, -50));
-		this->addObject(frog2);
+		//Object* frog2 = new Object();
+		//createFrog(frog2);
+		//frog2->scale(Vector(0.3, 0.3, 0.3));
+		//frog2->rotate(-135, Vector(0, 1, 0));
+		//frog2->translate(Vector(4, -6, -50));
+		//this->addObject(frog2);
 	}
 	void createFirefly(Object* firefly){
 		Ellipsoid* fireflyBody = new Ellipsoid(Point(8, 8, 0), 0.2, 0.2, 0.2);
