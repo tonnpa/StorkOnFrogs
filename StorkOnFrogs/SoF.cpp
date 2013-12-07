@@ -52,7 +52,7 @@
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__)                                                                                                                                                                       
 #include <windows.h>                                                                                                                                                                                                              
 #endif                                                                                                                                                                                                                            
-#include <GL/gl.h>                                                                                                                                                                                                                
+#include <GL/gl.h>                                                                                                                                                                                                             
 #include <GL/glu.h>                                                                                                                                                                                                               
 #include <GL/glut.h>                                                                                                                                                                                                              
 #endif          
@@ -255,6 +255,23 @@ public:
 Texture* terrainTexture;
 Texture* storkTexture;
 
+class Bone {
+	float		    length;
+	float			rot_angle;
+	Vector		    rot_axis;
+	Vector			joint_pos;
+public:
+	Bone(Vector joint_pos0, float bone_length, float rot_angle0, Vector rot_axis0) {
+		joint_pos = joint_pos0;
+		length = bone_length;
+		rot_angle = rot_angle0;
+		rot_axis = rot_axis0;
+	}
+	void draw() {
+	}
+	friend class Stork;
+};
+
 class ParamSurface{
 	Texture* texture;
 	Material* material;
@@ -309,7 +326,6 @@ public:
 		}
 		glPoint3f(surfacePoint(u, v));
 	}
-	virtual void setBoneProperties(Vector rotationAxis, Vector jointPosition, float rotationAngle){}
 };
 
 class Plane : public ParamSurface{
@@ -382,11 +398,6 @@ class Cylinder : public ParamSurface{
 	Point center;
 	Vector a;
 
-	//h = bone length
-	float rotationAngle;
-	Vector rotationAxis;
-	Point jointPosition;
-
 public:
 	Cylinder(Point center, Vector a, float h, float r) :
 		center(center), h(h), r(r){
@@ -394,19 +405,16 @@ public:
 	}
 	Point surfacePoint(float u, float v){
 		v = v / V_MAX * 2 * PI;
-		Point axisPoint = center + a*u / U_MAX*h;
+		//Point axisPoint = center + a*u / U_MAX*h;
+		Point axisPoint = a*u / U_MAX*h;
 		Vector B = Vector(0, 0, 1);
 		Vector N = a%B;
 		return axisPoint + B*r*cos(v) + N*r*sin(v);
 	}
 	Point surfaceNormal(float u, float v){
-		Point axisPoint = center + a*u / U_MAX*h;
+		//Point axisPoint = center + a*u / U_MAX*h;
+		Point axisPoint = a*u / U_MAX*h;
 		return surfacePoint(u, v) - axisPoint;
-	}
-	void setBoneProperties(Vector rotationAxis, Vector jointPosition, float rotationAngle){
-		this->rotationAxis = rotationAxis;
-		this->jointPosition = jointPosition;
-		this->rotationAngle = rotationAngle;
 	}
 };
 
@@ -480,6 +488,7 @@ public:
 };
 
 class Object{
+protected:
 	ParamSurface* surfaces[OBJ_NUM];
 	int surfaceCount;
 	ModelTransformation transformation;
@@ -504,7 +513,7 @@ public:
 			surfaceCount++;
 		}
 	}
-	void draw(){
+	virtual void draw(){
 		glPushMatrix();
 		transformation.setOpenGL();
 		for (int i = 0; i < surfaceCount; ++i){
@@ -512,9 +521,7 @@ public:
 		}
 		glPopMatrix();
 	}
-	void animate(float deltaTime){
-		this->transformation.translate += Vector(0.1, 0, 0) * deltaTime/1000;
-	}
+	virtual void animate(float deltaTime){}
 };
 
 class Stork : public Object{
@@ -529,9 +536,24 @@ class Stork : public Object{
 	Cylinder* rightUpperLeg;
 	Cylinder* rightLowerLeg;
 	//skeleton
+	Bone* leftFemur;
+	Bone* rightFemur;
+	Bone* leftTibia;
+	Bone* rightTibia;
 
+	//animation variables
+	float deltaAngle;
+	int leftLegState;
+	int rightLegState;
+
+	float deltaLeftLegAngle;
+	float deltaRightLegAngle;
 public:
-	Stork(){
+	Stork() : deltaLeftLegAngle(3), deltaRightLegAngle(-3){
+		deltaAngle = 4;
+		leftLegState = 1;
+		rightLegState = 2;
+
 		storkbody = new StorkBody();
 		storkbody->setMaterial(storkWhite);
 		head = new Ellipsoid(Point(-5.8, 5.5, 0), 1, 0.6, 0.5);
@@ -546,26 +568,28 @@ public:
 		leftEye->setMaterial(eyeBlack);
 		rightEye->setMaterial(eyeBlack);
 		beak->setMaterial(orangeRed);
-		Point p1, p2, p3, p4, p5;
-		p1 = Point(-1.5, 0.5, 0);
-		p2 = Point(0.25, -3, 0);
-		p3 = Point(-2, -5.25, 0);
-		Vector v1, v2, v3, v4;
-		v1 = p2 - p1;
-		v2 = p3 - p2;
-		v3 = (Point(-1.3, -3.8, 0) - Point(-1.5, 0.5, 0)).normalized();
-		v4 = (Point(-1.2, -6.6, 0) - Point(-1.3, -3.8, 0)).normalized();
-		p4 = p1 + v3*v1.Length();
-		p5 = p4 + v4*v2.Length();
-		leftUpperLeg = new Cylinder(p1 + Point(0, 0, 0.75), v1, v1.Length(), 0.2);
-		leftLowerLeg = new Cylinder(p2 + Point(0, 0, 0.75), v2, v2.Length(), 0.2);
-		rightUpperLeg = new Cylinder(p1 + Point(0, 0, -0.75), v3, v1.Length(), 0.2);
-		rightLowerLeg = new Cylinder(p4 + Point(0, 0, -0.75), v4, v2.Length(), 0.2);
+		Point leftTop = Point(-1.5, -1, 0.75);
+		Point rightTop = Point(-1.5, -1, -0.75);
+		Vector legDirection = Vector(0, -1, 0);
+		float upperLegLength = 3;
+		float lowerLegLength = 3;
+		leftUpperLeg = new Cylinder(leftTop, legDirection, upperLegLength, 0.2);
+		//leftLowerLeg = new Cylinder(leftTop + legDirection*upperLegLength, legDirection, lowerLegLength, 0.2);
+		leftLowerLeg = new Cylinder(legDirection*upperLegLength, legDirection, lowerLegLength, 0.2);
+		rightUpperLeg = new Cylinder(rightTop, legDirection, upperLegLength, 0.2);
+		//rightLowerLeg = new Cylinder(rightTop + legDirection*upperLegLength, legDirection, lowerLegLength, 0.2);
+		rightLowerLeg = new Cylinder(legDirection*upperLegLength, legDirection, lowerLegLength, 0.2);
 		leftUpperLeg->setMaterial(orangeRed);
 		leftLowerLeg->setMaterial(orangeRed);
 		rightUpperLeg->setMaterial(orangeRed);
 		rightLowerLeg->setMaterial(orangeRed);
 		storkbody->setTexture(storkTexture);
+		leftFemur = new Bone(leftTop, upperLegLength, -30, Vector(0, 0, 1));
+		rightFemur = new Bone(rightTop, upperLegLength, 30, Vector(0, 0, 1));
+		//leftTibia = new Bone(leftTop + legDirection*upperLegLength, lowerLegLength, 0, Vector(0, 0, 1));
+		//rightTibia = new Bone(rightTop + legDirection*upperLegLength, lowerLegLength, 0, Vector(0, 0, 1));
+		leftTibia = new Bone(legDirection*upperLegLength, lowerLegLength, 0, Vector(0, 0, 1));
+		rightTibia = new Bone(legDirection*upperLegLength, lowerLegLength, 0, Vector(0, 0, 1));
 		this->addSurface(leftUpperLeg);
 		this->addSurface(leftLowerLeg);
 		this->addSurface(rightUpperLeg);
@@ -575,6 +599,92 @@ public:
 		this->addSurface(leftEye);
 		this->addSurface(rightEye);
 		this->addSurface(beak);
+	}
+
+	void drawHead(){
+		head->draw();
+		leftEye->draw();
+		rightEye->draw();
+		beak->draw();
+	}
+
+	void draw(){
+		glPushMatrix();
+			transformation.setOpenGL();
+
+			drawHead();
+			//storkbody->draw();
+
+			glPushMatrix();
+				glTranslatef(leftFemur->joint_pos.x, leftFemur->joint_pos.y, leftFemur->joint_pos.z);
+				glRotatef(leftFemur->rot_angle, leftFemur->rot_axis.x, leftFemur->rot_axis.y, leftFemur->rot_axis.z);
+				//glTranslatef(-leftFemur->joint_pos.x, -leftFemur->joint_pos.y, -leftFemur->joint_pos.z);
+				leftUpperLeg->draw();
+				glTranslatef(leftTibia->joint_pos.x, leftTibia->joint_pos.y, leftTibia->joint_pos.z);
+				glRotatef(leftTibia->rot_angle, leftTibia->rot_axis.x, leftTibia->rot_axis.y, leftTibia->rot_axis.z);
+				//glTranslatef(-leftTibia->joint_pos.x, -leftTibia->joint_pos.y, -leftTibia->joint_pos.z);
+				leftLowerLeg->draw();
+			glPopMatrix();
+
+			glPushMatrix();
+				glTranslatef(rightFemur->joint_pos.x, rightFemur->joint_pos.y, rightFemur->joint_pos.z);
+				glRotatef(rightFemur->rot_angle, rightFemur->rot_axis.x, rightFemur->rot_axis.y, rightFemur->rot_axis.z);
+				rightUpperLeg->draw();
+				glTranslatef(rightTibia->joint_pos.x, rightTibia->joint_pos.y, rightTibia->joint_pos.z);
+				glRotatef(rightTibia->rot_angle, rightTibia->rot_axis.x, rightTibia->rot_axis.y, rightTibia->rot_axis.z);
+				rightLowerLeg->draw();
+			glPopMatrix();
+
+		glPopMatrix();
+	}
+
+	void nextLegState(float deltaTime, int* currentLegState, Bone* femur, Bone* tibia){
+		float dtu, dtl;
+
+		switch (*currentLegState)
+		{
+		case 1:
+			//change state
+			if (femur->rot_angle > 30){
+				*currentLegState = 2;
+				femur->rot_angle = 30;
+				tibia->rot_angle = 0;
+			}
+			//proceed without state change
+			dtu = dtl = deltaTime / (500.0 / 15.0);
+			femur->rot_angle += deltaAngle * dtu;
+			break;
+		case 2:
+			if (femur->rot_angle > 50){
+				*currentLegState = 3;
+				femur->rot_angle = 50;
+				tibia->rot_angle = -95;
+			}
+			dtu = deltaTime / (200.0 / 5.0);
+			dtl = deltaTime / (200.0 / 24.00);
+			femur->rot_angle += deltaAngle * dtu;
+			tibia->rot_angle -= deltaAngle * dtl;
+			break;
+		case 3:
+			if (femur->rot_angle < -30){
+				*currentLegState = 1;
+				femur->rot_angle = -30;
+				tibia->rot_angle = 0;
+			}
+			dtu = deltaTime / (300.0 / 20.0);
+			dtl = deltaTime / (300.0 / 24.00);
+			femur->rot_angle -= deltaAngle * dtu;
+			tibia->rot_angle += deltaAngle * dtl;
+			break;
+		default:
+			break;
+		}
+	}
+
+	void animate(float deltaTime){
+		deltaTime = deltaTime / 2;
+		nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
+		nextLegState(deltaTime, &rightLegState, rightFemur, rightTibia);
 	}
 };
 
@@ -606,7 +716,7 @@ class Scene{
 
 public:
 	Scene() :objectCount(0){
-		camera = new Camera(Point(0, 20, 0), Point(0, 0, -50), Vector(0, 1, 0), 54, 1, 1, 100);
+		camera = new Camera(Point(0, 0, 0), Point(0, 0, -50), Vector(0, 1, 0), 54, 1, 1, 100);
 	}
 	void addObject(Object* newObject){
 		if (objectCount < OBJ_NUM){
@@ -639,12 +749,6 @@ public:
 		stork->rotate(180, Vector(0, 1, 0));
 		stork->translate(Vector(-4, 0, -50));
 		this->addObject(stork);
-
-		//Object* stork = new Object();
-		//createStork(stork);
-		//stork->rotate(180, Vector(0, 1, 0));
-		//stork->translate(Vector(-4, 0, -50));
-		//this->addObject(stork);
 
 		Object* frog = new Object();
 		createFrog(frog);
