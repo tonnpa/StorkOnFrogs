@@ -59,9 +59,10 @@
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
+#include <iostream>
 
 #define OBJ_NUM 10
-#define PI 3.14
+#define PI 3.14159
 #define POINT_CNT 5
 #define U_MAX 20
 #define V_MAX 20
@@ -521,10 +522,11 @@ class Stork : public Object{
 	//animation variables
 	float deltaAngle, forward, up, turnAngle, turnState;
 	int leftLegState, rightLegState;
-	Point start;
-
+	Point temp;
+	Point prevPosition; //before turn
+	Vector translateVect;
 public:
-	Stork() : deltaAngle(4), leftLegState(1), rightLegState(2), forward(0), up(0), turnAngle(0), turnState(0), start(Point(0, 0, 0)){
+	Stork() : deltaAngle(4), leftLegState(1), rightLegState(2), forward(0), up(0), turnAngle(0), turnState(0), prevPosition(Point(0, 0, 0)){
 		storkbody = new StorkBody();
 		storkbody->setMaterial(storkWhite);
 		Point sPL = Point(-2.85, 1.15, 0); Point sPU = Point(-5.9, 6.25, 0); Point beakTip = Point(-7.6, 3.75, 0);
@@ -582,16 +584,25 @@ public:
 		glPushMatrix();
 			transformation.setOpenGL();
 			if (turnAngle != 0){
+				//update position before turn
+				//std::cout << "prev x = " << prevPosition.x << " prev z = " << prevPosition.z << '\n';
+				prevPosition.x = prevPosition.x + forward*cos(turnState / 180.0*PI);
+				prevPosition.z = prevPosition.z - forward*sin(turnState / 180.0*PI);
+				//save turn angle change
 				turnState += turnAngle;
 				turnAngle = 0;
-				start = Point(forward, 0, 0);
+
+				std::cout << "prev x = " << prevPosition.x << " prev z = " << prevPosition.z << '\n';
 				forward = 0;
+				translateVect.x = prevPosition.z;
+				translateVect.z = -prevPosition.x;
+				std::cout << "translate x = " << translateVect.x << " translate z = " << translateVect.z << '\n';
 			}
-			//glTranslatef(forward, up, 0);
-			glTranslatef(start.x, start.y, start.z);
+			//update position
+
+			glTranslatef(translateVect.x, 0, translateVect.z);
 			glTranslatef(forward, up, 0);
-			glRotatef(turnState, 0, 1, 0);
-			glTranslatef(-start.x, -start.y, -start.z);
+
 			storkbody->draw();
 
 			glPushMatrix();
@@ -662,7 +673,7 @@ public:
 		}
 	}
 	void animate(float deltaTime){
-		deltaTime /= 2;
+		deltaTime /= 4;
 		float oldFemurAngle = leftFemur->rot_angle; float oldTibiaAngle = leftTibia->rot_angle;
 		float oldFemurAngle2 = rightFemur->rot_angle; float oldTibiaAngle2 = rightTibia->rot_angle;
 		nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
@@ -737,7 +748,7 @@ public:
 		//this->addObject(firefly);
 
 		stork = new Stork();
-		stork->rotate(180, Vector(0, 1, 0));
+		stork->rotate(0, Vector(0, 1, 0));
 		stork->translate(Vector(0, 0, -50));
 		this->addObject(stork);
 
@@ -890,10 +901,10 @@ void onDisplay() {
 void onKeyboard(unsigned char key, int x, int y) {}
 void onKeyboardUp(unsigned char key, int x, int y) {
 	if (key == 'b') {
-		scene->rotateStork(10);
+		scene->rotateStork(90);
 	}
 	else if (key == 'j'){
-		scene->rotateStork(-10);
+		scene->rotateStork(-90);
 	}
 }
 void onMouse(int button, int state, int x, int y) {}
