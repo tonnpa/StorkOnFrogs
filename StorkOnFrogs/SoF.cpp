@@ -522,11 +522,11 @@ class Stork : public Object{
 	//animation variables
 	float deltaAngle, forward, up, turnAngle, turnState;
 	int leftLegState, rightLegState;
-	Point temp;
 	Point prevPosition; //before turn
-	Vector translateVect;
+	Vector walkDir;
+
 public:
-	Stork() : deltaAngle(4), leftLegState(1), rightLegState(2), forward(0), up(0), turnAngle(0), turnState(0), prevPosition(Point(0, 0, 0)){
+	Stork() : deltaAngle(4), leftLegState(1), rightLegState(2), forward(0), up(0), turnAngle(0), turnState(0), prevPosition(Point(0, 0, 0)), walkDir(Vector(1,0,0)){
 		storkbody = new StorkBody();
 		storkbody->setMaterial(storkWhite);
 		Point sPL = Point(-2.85, 1.15, 0); Point sPU = Point(-5.9, 6.25, 0); Point beakTip = Point(-7.6, 3.75, 0);
@@ -578,30 +578,33 @@ public:
 	}
 	void turn(float phi){
 		turnAngle = phi;
-		transformation.phi += phi;
 	}
 	void draw(){
 		glPushMatrix();
-			transformation.setOpenGL();
 			if (turnAngle != 0){
 				//update position before turn
 				//std::cout << "prev x = " << prevPosition.x << " prev z = " << prevPosition.z << '\n';
-				prevPosition.x = prevPosition.x + forward*cos(turnState / 180.0*PI);
-				prevPosition.z = prevPosition.z - forward*sin(turnState / 180.0*PI);
+				//prevPosition.x = prevPosition.x + forward*cos(turnState / 180.0*PI);
+				//prevPosition.z = prevPosition.z - forward*sin(turnState / 180.0*PI);
+				prevPosition = prevPosition + walkDir * forward;
 				//save turn angle change
 				turnState += turnAngle;
+				walkDir.x = cos(turnState / 180.0*PI);
+				walkDir.z = -sin(turnState / 180.0*PI);
+				walkDir = walkDir.normalized();
+				std::cout << "walk x = " << walkDir.x << " walk z = " << walkDir.z << '\n';
 				turnAngle = 0;
-
 				std::cout << "prev x = " << prevPosition.x << " prev z = " << prevPosition.z << '\n';
 				forward = 0;
-				translateVect.x = prevPosition.z;
-				translateVect.z = -prevPosition.x;
-				std::cout << "translate x = " << translateVect.x << " translate z = " << translateVect.z << '\n';
 			}
 			//update position
+			Point currentPosition = prevPosition + walkDir*forward;
+			Vector dS = walkDir*forward;
 
-			glTranslatef(translateVect.x, 0, translateVect.z);
-			glTranslatef(forward, up, 0);
+			glTranslatef(dS.x, up, dS.z);
+			glTranslatef(prevPosition.x, 0, prevPosition.z);
+			glRotatef(turnState, 0, 1, 0);
+			//glTranslatef(-currentPosition.x, 0, -currentPosition.z);
 
 			storkbody->draw();
 
@@ -631,6 +634,24 @@ public:
 			glPopMatrix();
 
 		glPopMatrix();
+	}
+	void animate(float deltaTime){
+		deltaTime /= 4;
+		float oldFemurAngle = leftFemur->rot_angle; float oldTibiaAngle = leftTibia->rot_angle;
+		float oldFemurAngle2 = rightFemur->rot_angle; float oldTibiaAngle2 = rightTibia->rot_angle;
+		nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
+		nextLegState(deltaTime, &rightLegState, rightFemur, rightTibia);
+		//stepping with left leg
+		if (leftLegState == 3 || leftLegState ==2){
+			forward -= fabs(leftFemur->length * sin(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * sin((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI) -
+				leftFemur->length * sin(oldFemurAngle / 180.0*PI) - leftTibia->length * sin((oldTibiaAngle + oldFemurAngle) / 180.0*PI));
+			up = rightFemur->length * cos(rightFemur->rot_angle / 180.0*PI) + rightTibia->length * cos((rightTibia->rot_angle + rightFemur->rot_angle) / 180.0*PI);
+		}
+		//stepping with right leg
+		else{
+			forward -= fabs(rightFemur->length * sin(rightFemur->rot_angle / 180.0*PI) + rightTibia->length * sin((rightTibia->rot_angle + rightFemur->rot_angle) / 180.0*PI) -	rightFemur->length * sin(oldFemurAngle2 / 180.0*PI) - rightTibia->length * sin((oldTibiaAngle2 + oldFemurAngle2) / 180.0*PI));
+			up = leftFemur->length * cos(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * cos((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI);
+		}
 	}
 	void nextLegState(float deltaTime, int* currentLegState, Bone* femur, Bone* tibia){
 		float dtu, dtl;
@@ -672,24 +693,6 @@ public:
 			break;
 		}
 	}
-	void animate(float deltaTime){
-		deltaTime /= 4;
-		float oldFemurAngle = leftFemur->rot_angle; float oldTibiaAngle = leftTibia->rot_angle;
-		float oldFemurAngle2 = rightFemur->rot_angle; float oldTibiaAngle2 = rightTibia->rot_angle;
-		nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
-		nextLegState(deltaTime, &rightLegState, rightFemur, rightTibia);
-		//stepping with left leg
-		if (leftLegState == 3 || leftLegState ==2){
-			forward -= fabs(leftFemur->length * sin(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * sin((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI) -
-				leftFemur->length * sin(oldFemurAngle / 180.0*PI) - leftTibia->length * sin((oldTibiaAngle + oldFemurAngle) / 180.0*PI));
-			up = rightFemur->length * cos(rightFemur->rot_angle / 180.0*PI) + rightTibia->length * cos((rightTibia->rot_angle + rightFemur->rot_angle) / 180.0*PI);
-		}
-		//stepping with right leg
-		else{
-			forward -= fabs(rightFemur->length * sin(rightFemur->rot_angle / 180.0*PI) + rightTibia->length * sin((rightTibia->rot_angle + rightFemur->rot_angle) / 180.0*PI) -	rightFemur->length * sin(oldFemurAngle2 / 180.0*PI) - rightTibia->length * sin((oldTibiaAngle2 + oldFemurAngle2) / 180.0*PI));
-			up = leftFemur->length * cos(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * cos((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI);
-		}
-	}
 };
 
 class Camera{
@@ -718,7 +721,7 @@ class Scene{
 
 public:
 	Scene() :objectCount(0){
-		camera = new Camera(Point(0, 20, 0), Point(0, 0, -50), Vector(0, 1, 0), 54, 1, 1, 100);
+		camera = new Camera(Point(0, 20, -50), Point(0, 0, 0), Vector(0, 1, 0), 54, 1, 1, 100);
 	}
 	void addObject(Object* newObject){
 		if (objectCount < OBJ_NUM){
@@ -739,7 +742,7 @@ public:
 	void build(){
 		Object* terrain = new Object();
 		createTerrain(terrain);
-		terrain->translate(Vector(-20, -0.5, -65));
+		terrain->translate(Vector(-20, -0.5, -15));
 		this->addObject(terrain);
 
 		//Object* firefly = new Object();
@@ -748,8 +751,6 @@ public:
 		//this->addObject(firefly);
 
 		stork = new Stork();
-		stork->rotate(0, Vector(0, 1, 0));
-		stork->translate(Vector(0, 0, -50));
 		this->addObject(stork);
 
 		//Object* frog = new Object();
@@ -901,10 +902,10 @@ void onDisplay() {
 void onKeyboard(unsigned char key, int x, int y) {}
 void onKeyboardUp(unsigned char key, int x, int y) {
 	if (key == 'b') {
-		scene->rotateStork(90);
+		scene->rotateStork(10);
 	}
 	else if (key == 'j'){
-		scene->rotateStork(-90);
+		scene->rotateStork(-10);
 	}
 }
 void onMouse(int button, int state, int x, int y) {}
