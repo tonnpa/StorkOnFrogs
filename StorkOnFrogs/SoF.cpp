@@ -515,9 +515,7 @@ class Stork : public Object{
 	Bone* rightTibia;
 	Bone* spine;
 	Bone* headBone;
-	Point leftEyePos;
-	Point rightEyePos;
-	Point beakPos;
+	Point leftEyePos, rightEyePos, beakPos;
 
 	//animation variables
 	float deltaAngle, forward, up, turnAngle, turnState;
@@ -582,29 +580,20 @@ public:
 	void draw(){
 		glPushMatrix();
 			if (turnAngle != 0){
-				//update position before turn
-				//std::cout << "prev x = " << prevPosition.x << " prev z = " << prevPosition.z << '\n';
-				//prevPosition.x = prevPosition.x + forward*cos(turnState / 180.0*PI);
-				//prevPosition.z = prevPosition.z - forward*sin(turnState / 180.0*PI);
+				//update position before last turn
 				prevPosition = prevPosition + walkDir * forward;
-				//save turn angle change
+				forward = 0;
+				//record change in direction
 				turnState += turnAngle;
+				turnAngle = 0;
 				walkDir.x = cos(turnState / 180.0*PI);
 				walkDir.z = -sin(turnState / 180.0*PI);
-				walkDir = walkDir.normalized();
-				std::cout << "walk x = " << walkDir.x << " walk z = " << walkDir.z << '\n';
-				turnAngle = 0;
-				std::cout << "prev x = " << prevPosition.x << " prev z = " << prevPosition.z << '\n';
-				forward = 0;
 			}
 			//update position
-			Point currentPosition = prevPosition + walkDir*forward;
-			Vector dS = walkDir*forward;
-
-			glTranslatef(dS.x, up, dS.z);
+			Vector distance = walkDir*forward;
+			glTranslatef(distance.x, up, distance.z);
 			glTranslatef(prevPosition.x, 0, prevPosition.z);
 			glRotatef(turnState, 0, 1, 0);
-			//glTranslatef(-currentPosition.x, 0, -currentPosition.z);
 
 			storkbody->draw();
 
@@ -695,6 +684,63 @@ public:
 	}
 };
 
+class Frog : public Object{
+	Ellipsoid* frogBody;
+	Ellipsoid* head;
+	Ellipsoid* eye;
+	Cylinder* leg;
+	Point headPos, leftEyePos, rightEyePos, leftLegPos, rightLegPos;
+
+public:
+	Frog(){
+		frogBody = new Ellipsoid(5.5, 2.75, 3);
+		headPos = Point(3.75, 1.5, 0);
+		head = new Ellipsoid(2, 2, 2.5);
+		leftEyePos = head->surfacePoint(U_MAX / 4, V_MAX / 8);
+		rightEyePos = head->surfacePoint(U_MAX / 4 * 3, V_MAX / 8);
+		eye = new Ellipsoid(0.7, 0.7, 0.7);
+		Vector fl = Point(0, -5, -1) - Point(-2.25, 0.75, -1);
+		leftLegPos = Point(0, 0.75, 1);
+		rightLegPos = Point(0, 0.75, -1);
+		leg = new Cylinder(fl, fl.Length() * 3 / 4, 1);
+		frogBody->setMaterial(frogGreen);
+		head->setMaterial(frogGreen);
+		eye->setMaterial(eyeBlack);
+		leg->setMaterial(frogGreen);
+		this->addSurface(frogBody);
+		this->addSurface(head);
+		this->addSurface(eye);
+		this->addSurface(leg);
+	}
+	void drawHead(){
+		head->draw();
+		glPushMatrix();
+		glTranslatef(leftEyePos.x, leftEyePos.y, leftEyePos.z);
+		eye->draw();
+		glPopMatrix();
+		glPushMatrix();
+		glTranslatef(rightEyePos.x, rightEyePos.y, rightEyePos.z);
+		eye->draw();
+		glPopMatrix();
+	}
+	void draw(){
+		transformation.setOpenGL();
+		frogBody->draw();
+		glPushMatrix();
+			glTranslatef(headPos.x, headPos.y, headPos.z);
+			drawHead();
+		glPopMatrix();
+		glPushMatrix();
+			glTranslatef(leftLegPos.x, leftLegPos.y, leftLegPos.z);
+			leg->draw();
+		glPopMatrix();
+		glPushMatrix();
+			glTranslatef(rightLegPos.x, rightLegPos.y, rightLegPos.z);
+			leg->draw();
+		glPopMatrix();
+	}
+};
+
 class Camera{
 	float fovy, aspect, zNear, zFar;
 	Point eye, lookAt;
@@ -753,56 +799,21 @@ public:
 		stork = new Stork();
 		this->addObject(stork);
 
-		//Object* frog = new Object();
-		//createFrog(frog);
+		//Frog* frog = new Frog();
+		//frog->rotate(45, Vector(0, 1, 0));
 		//frog->scale(Vector(0.3, 0.3, 0.3));
-		//frog->rotate(-45, Vector(0, 1, 0));
-		//frog->translate(Vector(-8, -6, -57));
 		//this->addObject(frog);
-
-		//Object* frog2 = new Object();
-		//createFrog(frog2);
-		//frog2->scale(Vector(0.3, 0.3, 0.3));
-		//frog2->rotate(-135, Vector(0, 1, 0));
-		//frog2->translate(Vector(4, -6, -50));
-		//this->addObject(frog2);
 	}
-	//void createFirefly(Object* firefly){
-	//	Ellipsoid* fireflyBody = new Ellipsoid(Point(8, 8, 0), 0.2, 0.2, 0.2);
-	//	fireflyBody->setMaterial(fireflyShine);
-	//	firefly->addSurface(fireflyBody);
-	//}
+	void createFirefly(Object* firefly){
+		Ellipsoid* fireflyBody = new Ellipsoid(0.2, 0.2, 0.2);
+		fireflyBody->setMaterial(fireflyShine);
+		firefly->addSurface(fireflyBody);
+	}
 	void createTerrain(Object* terrain){
 		Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 0, 1), 40, 40);
 		plane->setTexture(terrainTexture);
 		terrain->addSurface(plane);
 	}
-	//void createFrog(Object* frog){
-	//	Ellipsoid* frogBody = new Ellipsoid(Point(-2, 1, 0), 5.5, 2.75, 3);
-	//	Ellipsoid* frogHead = new Ellipsoid(Point(3.75, 1.5, 0), 2, 2, 2.5);
-	//	Vector fl = Point(0, -5, -1) - Point(-2.25, 0.75, -1);
-	//	Cylinder* frontLegR = new Cylinder(Point(0, 0.75, -1), fl, fl.Length() * 3 / 4, 1);
-	//	Cylinder* frontLegL = new Cylinder(Point(0, 0.75, 1), fl, fl.Length() * 3 / 4, 1);
-	//	frogBody->setMaterial(frogGreen);
-	//	frogHead->setMaterial(frogGreen);
-	//	frontLegR->setMaterial(frogGreen);
-	//	frontLegL->setMaterial(frogGreen);
-	//	float angleToZ = U_MAX / 4;
-	//	float angleToX = V_MAX / 8;
-	//	Point eye = frogHead->surfacePoint(angleToZ, angleToX);
-	//	Point eye2 = frogHead->surfacePoint(angleToZ * 3, angleToX);
-	//	Ellipsoid* leftEye = new Ellipsoid(eye, 0.7, 0.7, 0.7);
-	//	Ellipsoid* rightEye = new Ellipsoid(eye2, 0.7, 0.7, 0.7);
-	//	leftEye->setMaterial(eyeBlack);
-	//	rightEye->setMaterial(eyeBlack);
-	//	frog->addSurface(frogBody);
-	//	frog->addSurface(frogHead);
-	//	frog->addSurface(frontLegR);
-	//	frog->addSurface(frontLegL);
-	//	frog->addSurface(leftEye);
-	//	frog->addSurface(rightEye);
-	//}
-
 	void simulateWorld(float old_time, float current_time){
 		for (float timeSlotBeginning = old_time; timeSlotBeginning < current_time; timeSlotBeginning += DELTA_TIME){
 			float timeSlotEnd = fminf(timeSlotBeginning + DELTA_TIME, current_time);
@@ -823,30 +834,19 @@ const int screenWidth = 600;
 const int screenHeight = 600;
 Color image[screenWidth*screenHeight];
 
-float old_time;
-float current_time;
+float old_time, current_time;
 
 void onInitialization() {
 	orangeRed = new Material();
-	orangeRed->setKs(0.8, 0.2, 0, 1, 4);
-	orangeRed->setKd(0.8, 0.27, 0, 1);
-	orangeRed->setKa(0.2, 0.1, 0, 1);
+	orangeRed->setKs(0.8, 0.2, 0, 1, 4); orangeRed->setKd(0.8, 0.27, 0, 1); orangeRed->setKa(0.2, 0.1, 0, 1);
 	frogGreen = new Material();
-	frogGreen->setKa(0, 0.4, 0, 1);
-	frogGreen->setKs(1, 1, 1, 1, 20);
-	frogGreen->setKd(0.7, 1, 0.4, 1);
+	frogGreen->setKa(0, 0.4, 0, 1); frogGreen->setKs(1, 1, 1, 1, 20); frogGreen->setKd(0.7, 1, 0.4, 1);
 	storkWhite = new Material();
-	storkWhite->setKa(0.75, 0.75, 0.75, 1);
-	storkWhite->setKd(1, 1, 1, 1);
-	storkWhite->setKs(1, 1, 1, 1, 7);
+	storkWhite->setKa(0.75, 0.75, 0.75, 1); storkWhite->setKd(1, 1, 1, 1); storkWhite->setKs(1, 1, 1, 1, 7);
 	fireflyShine = new Material();
-	fireflyShine->setKa(1, 1, 1, 1);
-	fireflyShine->setKd(1, 1, 1, 1);
-	fireflyShine->setKs(1, 1, 1, 1, 20);
+	fireflyShine->setKa(1, 1, 1, 1); fireflyShine->setKd(1, 1, 1, 1); fireflyShine->setKs(1, 1, 1, 1, 20);
 	eyeBlack = new Material();
-	eyeBlack->setKa(0, 0, 0, 1);
-	eyeBlack->setKd(0.1, 0.1, 0.1, 1);
-	eyeBlack->setKs(0.7, 0.7, 0.7, 1, 5);
+	eyeBlack->setKa(0, 0, 0, 1); eyeBlack->setKd(0.1, 0.1, 0.1, 1); eyeBlack->setKs(0.7, 0.7, 0.7, 1, 5);
 
 	unsigned int texids;
 	glGenTextures(1, &texids);
@@ -868,22 +868,12 @@ void onInitialization() {
 	glShadeModel(GL_SMOOTH);
 	glEnable(GL_NORMALIZE);
 
-	float dIa[] = { 0, 0, 0, 1 };
-	float dId[] = { 0.3, 0.3, 0.3, 1 };
-	float dIs[] = { 0.4, 0.4, 0.4, 1 };
-	glLightfv(GL_LIGHT0, GL_AMBIENT, dIa);
-	glLightfv(GL_LIGHT0, GL_DIFFUSE, dId);
-	glLightfv(GL_LIGHT0, GL_SPECULAR, dIs);
+	float dIa[] = { 0, 0, 0, 1 }; float dId[] = { 0.3, 0.3, 0.3, 1 }; float dIs[] = { 0.4, 0.4, 0.4, 1 };
+	glLightfv(GL_LIGHT0, GL_AMBIENT, dIa); glLightfv(GL_LIGHT0, GL_DIFFUSE, dId); glLightfv(GL_LIGHT0, GL_SPECULAR, dIs);
+	float pIa[] = { 0.1, 0.1, 0.1, 1 }; float pId[] = { 0.5, 0.5, 0.5, 1 }; float pIs[] = { 0.7, 0.7, 0.7, 1 };
+	glLightfv(GL_LIGHT1, GL_AMBIENT, pIa); glLightfv(GL_LIGHT1, GL_DIFFUSE, pId); glLightfv(GL_LIGHT1, GL_SPECULAR, pIs);
+	glEnable(GL_LIGHT0); glEnable(GL_LIGHT1);
 
-	float pIa[] = { 0.1, 0.1, 0.1, 1 };
-	float pId[] = { 0.5, 0.5, 0.5, 1 };
-	float pIs[] = { 0.7, 0.7, 0.7, 1 };
-	glLightfv(GL_LIGHT1, GL_AMBIENT, pIa);
-	glLightfv(GL_LIGHT1, GL_DIFFUSE, pId);
-	glLightfv(GL_LIGHT1, GL_SPECULAR, pIs);
-
-	glEnable(GL_LIGHT0);
-	glEnable(GL_LIGHT1);
 	scene = new Scene();
 	scene->build();
 
@@ -893,13 +883,10 @@ void onInitialization() {
 void onDisplay() {
 	glClearColor(0.1f, 0.1f, 0.2f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 	scene->render();
-
 	glutSwapBuffers();
 }
 
-void onKeyboard(unsigned char key, int x, int y) {}
 void onKeyboardUp(unsigned char key, int x, int y) {
 	if (key == 'b') {
 		scene->rotateStork(10);
@@ -908,6 +895,8 @@ void onKeyboardUp(unsigned char key, int x, int y) {
 		scene->rotateStork(-10);
 	}
 }
+
+void onKeyboard(unsigned char key, int x, int y) {}
 void onMouse(int button, int state, int x, int y) {}
 void onMouseMotion(int x, int y){}
 void onIdle() {
