@@ -174,10 +174,8 @@ public:
 	}
 	void setup(){
 		v[0] = v[pointCount - 1] = Vector(0.01, 0.01, 0.01);
-		for (int i = 1; i < pointCount - 1; ++i){
+		for (int i = 1; i < pointCount - 1; ++i)
 			v[i] = ((p[i + 1] - p[i]) / (t[i + 1] - t[i]) + (p[i] - p[i - 1]) / (t[i] - t[i - 1]))*0.5;
-		}
-
 		for (int i = 0; i < functionCount; ++i){
 			a2[i] = (p[i + 1] - p[i]) * 3 / powf(t[i + 1] - t[i], 2.0) - (v[i + 1] + v[i] * 2) / (t[i + 1] - t[i]);
 			a3[i] = (p[i] - p[i + 1]) * 2 / powf(t[i + 1] - t[i], 3.0) + (v[i + 1] + v[i]) / powf(t[i + 1] - t[i], 2.0);
@@ -185,20 +183,16 @@ public:
 	}
 	Point curvePoint(float u){
 		int i = 0;
-		for (int j = 0; j < pointCount; ++j){
-			if (u > t[j]){
+		for (int j = 0; j < pointCount; ++j)
+			if (u > t[j])
 				i = j;
-			}
-		}
 		return a3[i] * powf(u - t[i], 3) + a2[i] * powf(u - t[i], 2) + v[i] * (u - t[i]) + p[i];
 	}
 	Point curvePointDerivative(float u){
 		int i = 0;
-		for (int j = 0; j < pointCount; ++j){
-			if (u > t[j]){
+		for (int j = 0; j < pointCount; ++j)
+			if (u > t[j])
 				i = j;
-			}
-		}
 		return a3[i] * 3 * powf(u - t[i], 2) + a2[i] * 2 * (u - t[i]) + v[i];
 	}
 };
@@ -416,8 +410,6 @@ public:
 		midline->addPoint(Point(2.55, -1.75, 0), weightUnit * 4);
 		midline->setup();
 
-		turnPoint = weightUnit * 4.5;
-
 		outline = new CTRSpline();
 		outline->addPoint(Point(-4.9, 6, 0), 0);
 		outline->addPoint(Point(-4.2, 3.55, 0), weightUnit * 1);
@@ -425,6 +417,8 @@ public:
 		outline->addPoint(Point(1, 0.75, 0), weightUnit * 3);
 		outline->addPoint(Point(2.9, -1.5, 0), weightUnit * 4);
 		outline->setup();
+
+		turnPoint = weightUnit * 4.5;
 	}
 	float radius(float u){
 		return (outline->curvePoint(u) - midline->curvePoint(u)).Length();
@@ -494,8 +488,7 @@ public:
 		transformation.translate = v;
 	}
 	void rotate(float phi, Vector axis){
-		transformation.phi = phi;
-		transformation.rotate = axis;
+		transformation.phi = phi; transformation.rotate = axis;
 	}
 	void scale(Vector v){
 		transformation.scale = v;
@@ -509,9 +502,8 @@ public:
 	virtual void draw(){
 		glPushMatrix();
 		transformation.setOpenGL();
-		for (int i = 0; i < surfaceCount; ++i){
+		for (int i = 0; i < surfaceCount; ++i)
 			surfaces[i]->draw();
-		}
 		glPopMatrix();
 	}
 	virtual void animate(float deltaTime){}
@@ -553,9 +545,9 @@ class Stork : public Object{
 	//1 - turning (either left or right)
 	//2 - attacking
 	int overallState, leftLegState, rightLegState;
-	bool moveDown;
+	bool moveDown, turnLeft;
 public:
-	Stork() :overallState(STEP), leftLegState(1), rightLegState(2), forward(0), up(0), turnAngle(0), turnState(0), prevPosition(Point(0, 0, 0)), walkDir(Vector(1, 0, 0)), moveDown(true){
+	Stork() :overallState(STEP), leftLegState(1), rightLegState(2), forward(0), up(0), turnAngle(0), turnState(0), prevPosition(Point(0, 0, 0)), walkDir(Vector(1, 0, 0)), moveDown(true), turnLeft(true){
 		storkbody = new StorkBody();
 		storkbody->setMaterial(storkWhite);
 		Point sPL = Point(-2.85, 1.15, 0); Point sPU = Point(-5.9, 6.25, 0); Point beakTip = Point(-7.6, 3.75, 0);
@@ -583,12 +575,6 @@ public:
 		rightFemur = new Bone(rightTop, 30, Vector(0, 0, 1), upperLegLength, legDirection);
 		leftTibia = new Bone(legDirection*upperLegLength, 0, Vector(0, 0, 1), lowerLegLength, legDirection);
 		rightTibia = new Bone(legDirection*upperLegLength, 0, Vector(0, 0, 1), lowerLegLength, legDirection);
-		this->addSurface(leftUpperLeg); this->addSurface(leftLowerLeg);
-		this->addSurface(rightUpperLeg); this->addSurface(rightLowerLeg);
-		this->addSurface(storkbody);
-		this->addSurface(head);
-		this->addSurface(leftEye); this->addSurface(rightEye);
-		this->addSurface(beak);
 	}
 	void drawHead(){
 		head->draw();
@@ -607,23 +593,16 @@ public:
 	}
 	void turn(float phi){
 		turnAngle = phi;
+		if (phi > 0)
+			turnLeft = true;
+		else
+			turnLeft = false;
 	}
 	void changeState(int newState){
 		overallState = newState;
 	}
 	void draw(){
 		glPushMatrix();
-			if (turnAngle != 0){
-				//update position before last turn
-				prevPosition = prevPosition + walkDir * forward;
-				forward = 0;
-				//record change in direction
-				turnState += turnAngle;
-				turnAngle = 0;
-				walkDir.x = cos(turnState / 180.0*PI);
-				walkDir.z = -sin(turnState / 180.0*PI);
-			}
-			//update position
 			Vector distance = walkDir*forward;
 			glTranslatef(distance.x, up, distance.z);
 			glTranslatef(prevPosition.x, 0, prevPosition.z);
@@ -664,6 +643,7 @@ public:
 			step(deltaTime);
 			break;
 		case TURN:
+			turnTo(deltaTime);
 			break;
 		case ATTACK:
 			attack(deltaTime);
@@ -689,30 +669,8 @@ public:
 			up = leftFemur->length * cos(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * cos((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI);
 		}
 	}
-	void attack(float deltaTime){
-		if (spine->rot_angle > 50)
-			moveDown = false;
-		float dir;
-		if (moveDown)
-			dir = 1;
-		else
-			dir = -1;
-		spine->rot_angle += dir*deltaTime / (500 / 30)*DELTA_ANGLE;
-		headBone->rot_angle += dir*deltaTime / (500 / 50)*DELTA_ANGLE;
-		if (spine->rot_angle < 0){
-			//change state
-			overallState = STEP;
-			//reset to default
-			spine->rot_angle = 0;
-			headBone->rot_angle = 10;
-			moveDown = true;
-		}
-		storkbody->bend(spine->rot_angle);
-		headBone->joint_pos = storkbody->getHeadPosition();
-	}
 	void nextLegState(float deltaTime, int* currentLegState, Bone* femur, Bone* tibia){
 		float dtu, dtl;
-
 		switch (*currentLegState)
 		{
 		case 1:
@@ -750,6 +708,49 @@ public:
 			break;
 		}
 	}
+	void attack(float deltaTime){
+		if (spine->rot_angle > 50)
+			moveDown = false;
+		float dir;
+		if (moveDown)
+			dir = 1;
+		else
+			dir = -1;
+		spine->rot_angle += dir*deltaTime / (500 / 30)*DELTA_ANGLE;
+		headBone->rot_angle += dir*deltaTime / (500 / 50)*DELTA_ANGLE;
+		if (spine->rot_angle < 0){
+			//change state
+			overallState = STEP;
+			//reset to default
+			spine->rot_angle = 0;
+			headBone->rot_angle = 10;
+			moveDown = true;
+		}
+		storkbody->bend(spine->rot_angle);
+		headBone->joint_pos = storkbody->getHeadPosition();
+	}
+	void turnTo(float deltaTime){
+		float dir;
+		if ((turnLeft && turnAngle <= 0) || (!turnLeft && turnAngle >= 0)){
+			//change state
+			overallState = STEP;
+			//reset change
+			turnAngle = 0;
+			//save change
+			walkDir.x = cos(turnState / 180.0*PI);
+			walkDir.z = -sin(turnState / 180.0*PI);
+		}
+		if (turnLeft)
+			dir = 1;
+		else
+			dir = -1;
+		if (forward != 0){
+			prevPosition = prevPosition + walkDir * forward;
+			forward = 0;
+		}
+		turnAngle -= dir*deltaTime / (500 / 3)*DELTA_ANGLE;
+		turnState += dir*deltaTime / (500 / 3)*DELTA_ANGLE;
+	}
 };
 
 class Frog : public Object{
@@ -775,10 +776,6 @@ public:
 		head->setMaterial(frogGreen);
 		eye->setMaterial(eyeBlack);
 		leg->setMaterial(frogGreen);
-		this->addSurface(frogBody);
-		this->addSurface(head);
-		this->addSurface(eye);
-		this->addSurface(leg);
 	}
 	void drawHead(){
 		head->draw();
@@ -857,7 +854,7 @@ public:
 		Object* terrain = new Object();
 		createTerrain(terrain);
 		terrain->translate(Vector(-20, -0.5, -15));
-		//this->addObject(terrain);
+		this->addObject(terrain);
 
 		//Object* firefly = new Object();
 		//createFirefly(firefly);
@@ -960,9 +957,11 @@ void onDisplay() {
 
 void onKeyboardUp(unsigned char key, int x, int y) {
 	if (key == 'b') {
+		scene->changeStorkState(TURN);
 		scene->rotateStork(10);
 	}
 	else if (key == 'j'){
+		scene->changeStorkState(TURN);
 		scene->rotateStork(-10);
 	}
 	else if (key == ' '){
