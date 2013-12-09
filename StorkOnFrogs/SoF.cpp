@@ -68,6 +68,7 @@
 #define V_MAX 20
 #define EPS 0.0001
 #define DELTA_TIME 20.0
+#define DELTA_ANGLE 4.0
 
 struct Vector {
 	float x, y, z;
@@ -436,15 +437,15 @@ public:
 	Point surfacePoint(float u, float v){
 		v = v / V_MAX * 2 * PI;
 		Vector B = Vector(0, 0, 1);
-		//return midline->curvePoint(u) + B*radius(u)*cos(v) + normal(u)*radius(u)*sin(v);
 		Point bodyPoint = midline->curvePoint(u) + B*radius(u)*cos(v) + normal(u)*radius(u)*sin(v);
-		if (u < turnPoint){
-			Point twistedBodyPoint;
+		if (u < turnPoint && turnState != 0){
+			Point bentBodyPoint;
+			//smooth skinning
 			float degree = turnState - u / turnPoint*turnState;
-			twistedBodyPoint.x = bodyPoint.x * cos(degree / 180.0*PI) - bodyPoint.y * sin(degree / 180.0*PI);
-			twistedBodyPoint.y = bodyPoint.x * sin(degree / 180.0*PI) + bodyPoint.y * cos(degree / 180.0*PI);
-			twistedBodyPoint.z = bodyPoint.z;
-			return twistedBodyPoint;
+			bentBodyPoint.x = bodyPoint.x * cos(degree / 180.0*PI) - bodyPoint.y * sin(degree / 180.0*PI);
+			bentBodyPoint.y = bodyPoint.x * sin(degree / 180.0*PI) + bodyPoint.y * cos(degree / 180.0*PI);
+			bentBodyPoint.z = bodyPoint.z;
+			return bentBodyPoint;
 		}
 		return bodyPoint;
 	}
@@ -516,6 +517,8 @@ public:
 	virtual void animate(float deltaTime){}
 };
 
+enum{ STEP, TURN, ATTACK};
+
 class Stork : public Object{
 	//body parts
 	StorkBody* storkbody;
@@ -537,12 +540,22 @@ class Stork : public Object{
 	Point leftEyePos, rightEyePos, beakPos;
 
 	//animation variables
-	float deltaAngle, forward, up, turnAngle, turnState;
-	int overallState, leftLegState, rightLegState;
-	Point prevPosition; //before turn
+	//forward - how long the distance is measured from last turning point
+	//up - height based on leg movement
+	//prevPosition - the location of the last turning point
+	//turnState - direction in which it is going, expressed in angles
+	//walkDir - direction in which it is going, expressed in vector
+	float forward, up, turnAngle, turnState;
+	Point prevPosition;
 	Vector walkDir;
+	//overallState
+	//0 - stepping, walking forward
+	//1 - turning (either left or right)
+	//2 - attacking
+	int overallState, leftLegState, rightLegState;
+	bool moveDown;
 public:
-	Stork() : deltaAngle(4), leftLegState(1), rightLegState(2), forward(0), up(0), turnAngle(0), turnState(0), prevPosition(Point(0, 0, 0)), walkDir(Vector(1,0,0)){
+	Stork() :overallState(STEP), leftLegState(1), rightLegState(2), forward(0), up(0), turnAngle(0), turnState(0), prevPosition(Point(0, 0, 0)), walkDir(Vector(1, 0, 0)), moveDown(true){
 		storkbody = new StorkBody();
 		storkbody->setMaterial(storkWhite);
 		Point sPL = Point(-2.85, 1.15, 0); Point sPU = Point(-5.9, 6.25, 0); Point beakTip = Point(-7.6, 3.75, 0);
@@ -595,6 +608,9 @@ public:
 	void turn(float phi){
 		turnAngle = phi;
 	}
+	void changeState(int newState){
+		overallState = newState;
+	}
 	void draw(){
 		glPushMatrix();
 			if (turnAngle != 0){
@@ -641,29 +657,20 @@ public:
 
 		glPopMatrix();
 	}
-	bool moveDown = true;
 	void animate(float deltaTime){
-		deltaTime /= 2;
-
-		
-		if (spine->rot_angle > 50){
-			moveDown = false;
-			spine->rot_angle = 50;
+		switch (overallState)
+		{
+		case STEP:
+			step(deltaTime);
+			break;
+		case TURN:
+			break;
+		case ATTACK:
+			attack(deltaTime);
+			break;
+		default:
+			break;
 		}
-		if (spine->rot_angle <= 0){
-			moveDown = true;
-			spine->rot_angle = 0;
-		}
-		if (moveDown){
-			spine->rot_angle += deltaTime / (1000 / 30)*deltaAngle;
-			headBone->rot_angle += deltaTime / (1000 / 50)*deltaAngle;
-		}
-		else{
-			spine->rot_angle -= deltaTime / (1000 / 30)*deltaAngle;
-			headBone->rot_angle -= deltaTime / (1000 / 50)*deltaAngle;
-		}
-		storkbody->bend(spine->rot_angle);
-		headBone->joint_pos = storkbody->getHeadPosition();
 	}
 	void step(float deltaTime){
 		float oldFemurAngle = leftFemur->rot_angle; float oldTibiaAngle = leftTibia->rot_angle;
@@ -682,6 +689,27 @@ public:
 			up = leftFemur->length * cos(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * cos((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI);
 		}
 	}
+	void attack(float deltaTime){
+		if (spine->rot_angle > 50)
+			moveDown = false;
+		float dir;
+		if (moveDown)
+			dir = 1;
+		else
+			dir = -1;
+		spine->rot_angle += dir*deltaTime / (500 / 30)*DELTA_ANGLE;
+		headBone->rot_angle += dir*deltaTime / (500 / 50)*DELTA_ANGLE;
+		if (spine->rot_angle < 0){
+			//change state
+			overallState = STEP;
+			//reset to default
+			spine->rot_angle = 0;
+			headBone->rot_angle = 10;
+			moveDown = true;
+		}
+		storkbody->bend(spine->rot_angle);
+		headBone->joint_pos = storkbody->getHeadPosition();
+	}
 	void nextLegState(float deltaTime, int* currentLegState, Bone* femur, Bone* tibia){
 		float dtu, dtl;
 
@@ -696,7 +724,7 @@ public:
 			}
 			//proceed without state change
 			dtu = dtl = deltaTime / (500.0 / 15.0);
-			femur->rot_angle += deltaAngle * dtu;
+			femur->rot_angle += DELTA_ANGLE * dtu;
 			break;
 		case 2:
 			if (femur->rot_angle > 50){
@@ -705,8 +733,8 @@ public:
 				tibia->rot_angle = -95;
 			}
 			dtu = deltaTime / (200.0 / 5.0); dtl = deltaTime / (200.0 / 24.00);
-			femur->rot_angle += deltaAngle * dtu;
-			tibia->rot_angle -= deltaAngle * dtl;
+			femur->rot_angle += DELTA_ANGLE * dtu;
+			tibia->rot_angle -= DELTA_ANGLE * dtl;
 			break;
 		case 3:
 			if (femur->rot_angle < -30){
@@ -715,8 +743,8 @@ public:
 				tibia->rot_angle = 0;
 			}
 			dtu = deltaTime / (300.0 / 20.0); dtl = deltaTime / (300.0 / 24.00);
-			femur->rot_angle -= deltaAngle * dtu;
-			tibia->rot_angle += deltaAngle * dtl;
+			femur->rot_angle -= DELTA_ANGLE * dtu;
+			tibia->rot_angle += DELTA_ANGLE * dtl;
 			break;
 		default:
 			break;
@@ -829,7 +857,7 @@ public:
 		Object* terrain = new Object();
 		createTerrain(terrain);
 		terrain->translate(Vector(-20, -0.5, -15));
-		this->addObject(terrain);
+		//this->addObject(terrain);
 
 		//Object* firefly = new Object();
 		//createFirefly(firefly);
@@ -865,6 +893,9 @@ public:
 	}
 	void rotateStork(float phi){
 		stork->turn(phi);
+	}
+	void changeStorkState(int newState){
+		stork->changeState(newState);
 	}
 };
 
@@ -933,6 +964,9 @@ void onKeyboardUp(unsigned char key, int x, int y) {
 	}
 	else if (key == 'j'){
 		scene->rotateStork(-10);
+	}
+	else if (key == ' '){
+		scene->changeStorkState(ATTACK);
 	}
 }
 
