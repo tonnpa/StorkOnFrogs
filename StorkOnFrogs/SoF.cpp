@@ -59,7 +59,6 @@
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
-#include <iostream>
 
 #define OBJ_NUM 10
 #define PI 3.14159
@@ -69,6 +68,8 @@
 #define EPS 0.0001
 #define DELTA_TIME 20.0
 #define DELTA_ANGLE 4.0
+#define V_X 1.0
+#define V_Y 2.0
 
 struct Vector {
 	float x, y, z;
@@ -758,10 +759,12 @@ class Frog : public Object{
 	Ellipsoid* head;
 	Ellipsoid* eye;
 	Cylinder* leg;
-	Point headPos, leftEyePos, rightEyePos, leftLegPos, rightLegPos;
+	Point position, headPos, leftEyePos, rightEyePos, leftLegPos, rightLegPos;
 
+	float vx, vy, forward, up;
 public:
 	Frog(){
+		position = Point(0, 1, 0);
 		frogBody = new Ellipsoid(5.5, 2.75, 3);
 		headPos = Point(3.75, 1.5, 0);
 		head = new Ellipsoid(2, 2, 2.5);
@@ -789,20 +792,27 @@ public:
 		glPopMatrix();
 	}
 	void draw(){
-		transformation.setOpenGL();
-		frogBody->draw();
 		glPushMatrix();
-			glTranslatef(headPos.x, headPos.y, headPos.z);
-			drawHead();
+			glTranslatef(position.x, position.y, position.z);
+			glRotatef(45, 0, 1, 0);
+			glScalef(0.4, 0.4, 0.4);
+			frogBody->draw();
+			glPushMatrix();
+				glTranslatef(headPos.x, headPos.y, headPos.z);
+				drawHead();
+			glPopMatrix();
+			glPushMatrix();
+				glTranslatef(leftLegPos.x, leftLegPos.y, leftLegPos.z);
+				leg->draw();
+			glPopMatrix();
+			glPushMatrix();
+				glTranslatef(rightLegPos.x, rightLegPos.y, rightLegPos.z);
+				leg->draw();
+			glPopMatrix();
 		glPopMatrix();
-		glPushMatrix();
-			glTranslatef(leftLegPos.x, leftLegPos.y, leftLegPos.z);
-			leg->draw();
-		glPopMatrix();
-		glPushMatrix();
-			glTranslatef(rightLegPos.x, rightLegPos.y, rightLegPos.z);
-			leg->draw();
-		glPopMatrix();
+	}
+	void animate(float deltaTime){
+
 	}
 };
 
@@ -862,12 +872,10 @@ public:
 		//this->addObject(firefly);
 
 		stork = new Stork();
-		this->addObject(stork);
+		//this->addObject(stork);
 
-		//Frog* frog = new Frog();
-		//frog->rotate(45, Vector(0, 1, 0));
-		//frog->scale(Vector(0.3, 0.3, 0.3));
-		//this->addObject(frog);
+		Frog* frog = new Frog();
+		this->addObject(frog);
 	}
 	void createFirefly(Object* firefly){
 		Ellipsoid* fireflyBody = new Ellipsoid(0.2, 0.2, 0.2);
