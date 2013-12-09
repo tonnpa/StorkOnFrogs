@@ -286,7 +286,7 @@ public:
 		isMaterialized = true;
 		this->material = material;
 	}
-	void draw(){
+	virtual void draw(){
 		if (isTextured)
 			texture->setOpenGL();
 		else
@@ -403,8 +403,9 @@ class StorkBody : public ParamSurface{
 	CTRSpline* midline;
 	CTRSpline* outline;
 
+	float turnState, turnPoint;
 public:
-	StorkBody(){
+	StorkBody(): turnState(0){
 		midline = new CTRSpline();
 		float weightUnit = U_MAX / (POINT_CNT - 1);
 		midline->addPoint(Point(-5.1, 6, 0), 0);
@@ -413,6 +414,8 @@ public:
 		midline->addPoint(Point(0, 0, 0), weightUnit * 3);
 		midline->addPoint(Point(2.55, -1.75, 0), weightUnit * 4);
 		midline->setup();
+
+		turnPoint = weightUnit * 4.5;
 
 		outline = new CTRSpline();
 		outline->addPoint(Point(-4.9, 6, 0), 0);
@@ -433,7 +436,17 @@ public:
 	Point surfacePoint(float u, float v){
 		v = v / V_MAX * 2 * PI;
 		Vector B = Vector(0, 0, 1);
-		return midline->curvePoint(u) + B*radius(u)*cos(v) + normal(u)*radius(u)*sin(v);
+		//return midline->curvePoint(u) + B*radius(u)*cos(v) + normal(u)*radius(u)*sin(v);
+		Point bodyPoint = midline->curvePoint(u) + B*radius(u)*cos(v) + normal(u)*radius(u)*sin(v);
+		if (u < turnPoint){
+			Point twistedBodyPoint;
+			float degree = turnState - u / turnPoint*turnState;
+			twistedBodyPoint.x = bodyPoint.x * cos(degree / 180.0*PI) - bodyPoint.y * sin(degree / 180.0*PI);
+			twistedBodyPoint.y = bodyPoint.x * sin(degree / 180.0*PI) + bodyPoint.y * cos(degree / 180.0*PI);
+			twistedBodyPoint.z = bodyPoint.z;
+			return twistedBodyPoint;
+		}
+		return bodyPoint;
 	}
 	Point surfaceNormal(float u, float v){
 		Point r = surfacePoint(u, v);
@@ -457,6 +470,12 @@ public:
 		}
 		Vector n1 = v1%v2; Vector n2 = v2%v3; Vector n3 = v3%v4; Vector n4 = v4%v1;
 		return (n1 + n2 + n3 + n4) / valid;
+	}
+	void bend(float phi){
+		turnState = phi;
+	}
+	Point getHeadPosition(){
+		return surfacePoint(0, 0);
 	}
 };
 
@@ -529,10 +548,10 @@ public:
 		storkbody->setMaterial(storkWhite);
 		Point sPL = Point(-2.85, 1.15, 0); Point sPU = Point(-5.9, 6.25, 0); Point beakTip = Point(-7.6, 3.75, 0);
 		spine = new Bone(sPL, 0, Vector(0, 0, 1), (sPU-sPL).Length(), sPU-sPL);
-		head = new Ellipsoid(1, 0.6, 0.5);
+		head = new Ellipsoid(0.85, 0.6, 0.5);
 		head->setMaterial(storkWhite);
-		headBone = new Bone(spine->dir*spine->length, 0, Vector(0, 0, 1), 3.5, beakTip - sPU);
-		beak = new Cone(3, 0.25);
+		headBone = new Bone(storkbody->getHeadPosition(), 10, Vector(0, 0, 1), 3.5, beakTip - sPU);
+		beak = new Cone(4, 0.25);
 		leftEyePos = head->surfacePoint(-U_MAX / 4, -V_MAX / 8); rightEyePos = head->surfacePoint(-U_MAX / 4 * 3, -V_MAX / 8);
 		leftEye = new Ellipsoid(0.1, 0.1, 0.1); rightEye = new Ellipsoid(0.1, 0.1, 0.1);
 		leftEye->setMaterial(eyeBlack); rightEye->setMaterial(eyeBlack);
@@ -594,13 +613,14 @@ public:
 			glTranslatef(distance.x, up, distance.z);
 			glTranslatef(prevPosition.x, 0, prevPosition.z);
 			glRotatef(turnState, 0, 1, 0);
+			glScalef(2, 2, 2);
+			glRotatef(0, 0, 1, 0);
 
 			storkbody->draw();
 
 			glPushMatrix();
-				glTranslatef(spine->joint_pos.x, spine->joint_pos.y, spine->joint_pos.z);
 				glTranslatef(headBone->joint_pos.x, headBone->joint_pos.y, headBone->joint_pos.z);
-				glRotatef(10, 0, 0, 1);
+				glRotatef(headBone->rot_angle, headBone->rot_axis.x, headBone->rot_axis.y, headBone->rot_axis.z);
 				drawHead();
 			glPopMatrix();
 
@@ -624,23 +644,45 @@ public:
 
 		glPopMatrix();
 	}
+	bool moveDown = true;
 	void animate(float deltaTime){
-		deltaTime /= 4;
-		float oldFemurAngle = leftFemur->rot_angle; float oldTibiaAngle = leftTibia->rot_angle;
-		float oldFemurAngle2 = rightFemur->rot_angle; float oldTibiaAngle2 = rightTibia->rot_angle;
-		nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
-		nextLegState(deltaTime, &rightLegState, rightFemur, rightTibia);
-		//stepping with left leg
-		if (leftLegState == 3 || leftLegState ==2){
-			forward -= fabs(leftFemur->length * sin(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * sin((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI) -
-				leftFemur->length * sin(oldFemurAngle / 180.0*PI) - leftTibia->length * sin((oldTibiaAngle + oldFemurAngle) / 180.0*PI));
-			up = rightFemur->length * cos(rightFemur->rot_angle / 180.0*PI) + rightTibia->length * cos((rightTibia->rot_angle + rightFemur->rot_angle) / 180.0*PI);
+		deltaTime /= 2;
+
+		
+		if (spine->rot_angle > 50){
+			moveDown = false;
+			spine->rot_angle = 50;
 		}
-		//stepping with right leg
+		if (spine->rot_angle <= 0){
+			moveDown = true;
+			spine->rot_angle = 0;
+		}
+		if (moveDown){
+			spine->rot_angle += deltaTime / (1000 / 30)*deltaAngle;
+			headBone->rot_angle += deltaTime / (1000 / 50)*deltaAngle;
+		}
 		else{
-			forward -= fabs(rightFemur->length * sin(rightFemur->rot_angle / 180.0*PI) + rightTibia->length * sin((rightTibia->rot_angle + rightFemur->rot_angle) / 180.0*PI) -	rightFemur->length * sin(oldFemurAngle2 / 180.0*PI) - rightTibia->length * sin((oldTibiaAngle2 + oldFemurAngle2) / 180.0*PI));
-			up = leftFemur->length * cos(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * cos((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI);
+			spine->rot_angle -= deltaTime / (1000 / 30)*deltaAngle;
+			headBone->rot_angle -= deltaTime / (1000 / 50)*deltaAngle;
 		}
+		storkbody->bend(spine->rot_angle);
+		headBone->joint_pos = storkbody->getHeadPosition();
+		
+		//float oldFemurAngle = leftFemur->rot_angle; float oldTibiaAngle = leftTibia->rot_angle;
+		//float oldFemurAngle2 = rightFemur->rot_angle; float oldTibiaAngle2 = rightTibia->rot_angle;
+		//nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
+		//nextLegState(deltaTime, &rightLegState, rightFemur, rightTibia);
+		////stepping with left leg
+		//if (leftLegState == 3 || leftLegState ==2){
+		//	forward -= fabs(leftFemur->length * sin(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * sin((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI) -
+		//		leftFemur->length * sin(oldFemurAngle / 180.0*PI) - leftTibia->length * sin((oldTibiaAngle + oldFemurAngle) / 180.0*PI));
+		//	up = rightFemur->length * cos(rightFemur->rot_angle / 180.0*PI) + rightTibia->length * cos((rightTibia->rot_angle + rightFemur->rot_angle) / 180.0*PI);
+		//}
+		////stepping with right leg
+		//else{
+		//	forward -= fabs(rightFemur->length * sin(rightFemur->rot_angle / 180.0*PI) + rightTibia->length * sin((rightTibia->rot_angle + rightFemur->rot_angle) / 180.0*PI) -	rightFemur->length * sin(oldFemurAngle2 / 180.0*PI) - rightTibia->length * sin((oldTibiaAngle2 + oldFemurAngle2) / 180.0*PI));
+		//	up = leftFemur->length * cos(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * cos((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI);
+		//}
 	}
 	void nextLegState(float deltaTime, int* currentLegState, Bone* femur, Bone* tibia){
 		float dtu, dtl;
@@ -789,7 +831,7 @@ public:
 		Object* terrain = new Object();
 		createTerrain(terrain);
 		terrain->translate(Vector(-20, -0.5, -15));
-		this->addObject(terrain);
+		//this->addObject(terrain);
 
 		//Object* firefly = new Object();
 		//createFirefly(firefly);
