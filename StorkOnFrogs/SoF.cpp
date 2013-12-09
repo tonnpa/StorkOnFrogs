@@ -538,10 +538,9 @@ class Stork : public Object{
 
 	//animation variables
 	float deltaAngle, forward, up, turnAngle, turnState;
-	int leftLegState, rightLegState;
+	int overallState, leftLegState, rightLegState;
 	Point prevPosition; //before turn
 	Vector walkDir;
-
 public:
 	Stork() : deltaAngle(4), leftLegState(1), rightLegState(2), forward(0), up(0), turnAngle(0), turnState(0), prevPosition(Point(0, 0, 0)), walkDir(Vector(1,0,0)){
 		storkbody = new StorkBody();
@@ -613,8 +612,6 @@ public:
 			glTranslatef(distance.x, up, distance.z);
 			glTranslatef(prevPosition.x, 0, prevPosition.z);
 			glRotatef(turnState, 0, 1, 0);
-			glScalef(2, 2, 2);
-			glRotatef(0, 0, 1, 0);
 
 			storkbody->draw();
 
@@ -667,22 +664,23 @@ public:
 		}
 		storkbody->bend(spine->rot_angle);
 		headBone->joint_pos = storkbody->getHeadPosition();
-		
-		//float oldFemurAngle = leftFemur->rot_angle; float oldTibiaAngle = leftTibia->rot_angle;
-		//float oldFemurAngle2 = rightFemur->rot_angle; float oldTibiaAngle2 = rightTibia->rot_angle;
-		//nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
-		//nextLegState(deltaTime, &rightLegState, rightFemur, rightTibia);
-		////stepping with left leg
-		//if (leftLegState == 3 || leftLegState ==2){
-		//	forward -= fabs(leftFemur->length * sin(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * sin((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI) -
-		//		leftFemur->length * sin(oldFemurAngle / 180.0*PI) - leftTibia->length * sin((oldTibiaAngle + oldFemurAngle) / 180.0*PI));
-		//	up = rightFemur->length * cos(rightFemur->rot_angle / 180.0*PI) + rightTibia->length * cos((rightTibia->rot_angle + rightFemur->rot_angle) / 180.0*PI);
-		//}
-		////stepping with right leg
-		//else{
-		//	forward -= fabs(rightFemur->length * sin(rightFemur->rot_angle / 180.0*PI) + rightTibia->length * sin((rightTibia->rot_angle + rightFemur->rot_angle) / 180.0*PI) -	rightFemur->length * sin(oldFemurAngle2 / 180.0*PI) - rightTibia->length * sin((oldTibiaAngle2 + oldFemurAngle2) / 180.0*PI));
-		//	up = leftFemur->length * cos(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * cos((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI);
-		//}
+	}
+	void step(float deltaTime){
+		float oldFemurAngle = leftFemur->rot_angle; float oldTibiaAngle = leftTibia->rot_angle;
+		float oldFemurAngle2 = rightFemur->rot_angle; float oldTibiaAngle2 = rightTibia->rot_angle;
+		nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
+		nextLegState(deltaTime, &rightLegState, rightFemur, rightTibia);
+		//stepping with left leg
+		if (leftLegState == 3 || leftLegState == 2){
+			forward -= fabs(leftFemur->length * sin(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * sin((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI) -
+				leftFemur->length * sin(oldFemurAngle / 180.0*PI) - leftTibia->length * sin((oldTibiaAngle + oldFemurAngle) / 180.0*PI));
+			up = rightFemur->length * cos(rightFemur->rot_angle / 180.0*PI) + rightTibia->length * cos((rightTibia->rot_angle + rightFemur->rot_angle) / 180.0*PI);
+		}
+		//stepping with right leg
+		else{
+			forward -= fabs(rightFemur->length * sin(rightFemur->rot_angle / 180.0*PI) + rightTibia->length * sin((rightTibia->rot_angle + rightFemur->rot_angle) / 180.0*PI) - rightFemur->length * sin(oldFemurAngle2 / 180.0*PI) - rightTibia->length * sin((oldTibiaAngle2 + oldFemurAngle2) / 180.0*PI));
+			up = leftFemur->length * cos(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * cos((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI);
+		}
 	}
 	void nextLegState(float deltaTime, int* currentLegState, Bone* femur, Bone* tibia){
 		float dtu, dtl;
@@ -831,7 +829,7 @@ public:
 		Object* terrain = new Object();
 		createTerrain(terrain);
 		terrain->translate(Vector(-20, -0.5, -15));
-		//this->addObject(terrain);
+		this->addObject(terrain);
 
 		//Object* firefly = new Object();
 		//createFirefly(firefly);
