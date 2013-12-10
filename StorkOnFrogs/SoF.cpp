@@ -4,7 +4,7 @@
 // sorokon beluli reszben celszeru garazdalkodni, mert a tobbit ugyis toroljuk. 
 // A beadott program csak ebben a fajlban lehet, a fajl 1 byte-os ASCII karaktereket tartalmazhat. 
 // Tilos:
-// - mast "beinleftUpperLegdolni", illetve mas konyvtarat hasznalni
+// - mast "beincludolni", illetve mas konyvtarat hasznalni
 // - faljmuveleteket vegezni (printf is fajlmuvelet!)
 // - new operatort hivni az onInitialization fA1ggvA©nyt kivA©ve, a lefoglalt adat korrekt felszabadA­tA!sa nA©lkA1l 
 // - felesleges programsorokat a beadott programban hagyni
@@ -60,6 +60,7 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
 
+#define GAME_MODE true
 #define OBJ_NUM 10
 #define PI 3.14159
 #define POINT_CNT 5
@@ -70,6 +71,7 @@
 #define DELTA_ANGLE 4.0
 #define V_X 1.0
 #define V_Y 2.0
+#define GRAVITY 0.5
 
 struct Vector {
 	float x, y, z;
@@ -371,6 +373,9 @@ public:
 		Vector drdv = Vector(0, (1 - u / U_MAX) *r*cos(v), -(1 - u / U_MAX) *r*sin(v));
 		return drdu%drdv;
 	}
+	Point getTipPosition(){
+		return surfacePoint(U_MAX, 0);
+	}
 };
 
 class Cylinder : public ParamSurface{
@@ -510,7 +515,7 @@ public:
 	virtual void animate(float deltaTime){}
 };
 
-enum{ STEP, TURN, ATTACK};
+enum STORK_STATE{ STEP, TURN, ATTACK};
 
 class Stork : public Object{
 	//body parts
@@ -530,7 +535,7 @@ class Stork : public Object{
 	Bone* rightTibia;
 	Bone* spine;
 	Bone* headBone;
-	Point leftEyePos, rightEyePos, beakPos;
+	Point leftEyePos, rightEyePos, beakPos, beakTipPoistion;
 
 	//animation variables
 	//forward - how long the distance is measured from last turning point
@@ -561,6 +566,7 @@ public:
 		leftEye = new Ellipsoid(0.1, 0.1, 0.1); rightEye = new Ellipsoid(0.1, 0.1, 0.1);
 		leftEye->setMaterial(eyeBlack); rightEye->setMaterial(eyeBlack);
 		beakPos = head->surfacePoint(-U_MAX / 2, 0) + Point(0.25, 0, 0);
+		beakTipPoistion = beak->getTipPosition();
 		beak->setMaterial(orangeRed);
 		Point leftTop = Point(-1.6, -0.25, 0.75); Point rightTop = Point(-1.6, -0.25, -0.75);
 		Vector legDirection = Vector(0, -1, 0);
@@ -604,6 +610,17 @@ public:
 	}
 	void draw(){
 		glPushMatrix();
+			if (GAME_MODE){
+				//update position before last turn
+				prevPosition = prevPosition + walkDir * forward;
+				forward = 0;
+				//record change in direction
+				turnState += turnAngle;
+				turnAngle = 0;
+				walkDir.x = cos(turnState / 180.0*PI);
+				walkDir.z = -sin(turnState / 180.0*PI);
+			}
+			
 			Vector distance = walkDir*forward;
 			glTranslatef(distance.x, up, distance.z);
 			glTranslatef(prevPosition.x, 0, prevPosition.z);
@@ -644,7 +661,9 @@ public:
 			step(deltaTime);
 			break;
 		case TURN:
-			turnTo(deltaTime);
+			if (!GAME_MODE){
+				turnTo(deltaTime);
+			}
 			break;
 		case ATTACK:
 			attack(deltaTime);
@@ -754,6 +773,8 @@ public:
 	}
 };
 
+enum FROG_STATE{JUMP, REST};
+
 class Frog : public Object{
 	Ellipsoid* frogBody;
 	Ellipsoid* head;
@@ -761,9 +782,11 @@ class Frog : public Object{
 	Cylinder* leg;
 	Point position, headPos, leftEyePos, rightEyePos, leftLegPos, rightLegPos;
 
-	float vx, vy, forward, up;
+	Vector jumpDir;
+	float vx, vy, restTimer;
+	int frogID, overallState;
 public:
-	Frog(){
+	Frog(int ID): frogID(ID), overallState(REST), restTimer(1500), vx(V_X){
 		position = Point(0, 1, 0);
 		frogBody = new Ellipsoid(5.5, 2.75, 3);
 		headPos = Point(3.75, 1.5, 0);
@@ -781,14 +804,15 @@ public:
 		leg->setMaterial(frogGreen);
 	}
 	void drawHead(){
+		glTranslatef(headPos.x, headPos.y, headPos.z);
 		head->draw();
 		glPushMatrix();
-		glTranslatef(leftEyePos.x, leftEyePos.y, leftEyePos.z);
-		eye->draw();
+			glTranslatef(leftEyePos.x, leftEyePos.y, leftEyePos.z);
+			eye->draw();
 		glPopMatrix();
 		glPushMatrix();
-		glTranslatef(rightEyePos.x, rightEyePos.y, rightEyePos.z);
-		eye->draw();
+			glTranslatef(rightEyePos.x, rightEyePos.y, rightEyePos.z);
+			eye->draw();
 		glPopMatrix();
 	}
 	void draw(){
@@ -798,7 +822,6 @@ public:
 			glScalef(0.4, 0.4, 0.4);
 			frogBody->draw();
 			glPushMatrix();
-				glTranslatef(headPos.x, headPos.y, headPos.z);
 				drawHead();
 			glPopMatrix();
 			glPushMatrix();
@@ -812,7 +835,32 @@ public:
 		glPopMatrix();
 	}
 	void animate(float deltaTime){
-
+		switch (overallState)
+		{
+		case REST:
+			restTimer -= deltaTime;
+			if (restTimer < 0){
+				overallState = JUMP;
+				vy = V_Y;
+				srand((unsigned int)glutGet(GLUT_ELAPSED_TIME)*frogID);
+				jumpDir = Vector(rand()-rand(), 0, rand()-rand()).normalized();
+				restTimer = 1500;
+			}
+			break;
+		case JUMP:
+			if (fabs(vy) <= V_Y){
+				deltaTime /= 1000 / 15;
+				double dy = vy*deltaTime;
+				double dx = vx*deltaTime;
+				vy -= GRAVITY*deltaTime;
+				position += jumpDir*dx + Point(0, 1, 0)*dy;
+			}
+			else
+				overallState = REST;
+			break;
+		default:
+			break;
+		}
 	}
 };
 
@@ -839,6 +887,8 @@ class Scene{
 	Camera* camera;
 	int objectCount;
 	Stork* stork;
+	Frog* frog;
+	Frog* frog2;
 
 public:
 	Scene() :objectCount(0){
@@ -863,19 +913,21 @@ public:
 	void build(){
 		Object* terrain = new Object();
 		createTerrain(terrain);
-		terrain->translate(Vector(-20, -0.5, -15));
+		terrain->translate(Vector(-50, -0.5, -50));
 		this->addObject(terrain);
 
-		//Object* firefly = new Object();
-		//createFirefly(firefly);
-		//firefly->translate(Vector(0, 0, -50));
-		//this->addObject(firefly);
+		Object* firefly = new Object();
+		createFirefly(firefly);
+		firefly->translate(Vector(0, 8, 0));
+		this->addObject(firefly);
 
 		stork = new Stork();
-		//this->addObject(stork);
+		this->addObject(stork);
 
-		Frog* frog = new Frog();
+		frog = new Frog(-4);
 		this->addObject(frog);
+		frog2 = new Frog(4);
+		this->addObject(frog2);
 	}
 	void createFirefly(Object* firefly){
 		Ellipsoid* fireflyBody = new Ellipsoid(0.2, 0.2, 0.2);
@@ -883,7 +935,7 @@ public:
 		firefly->addSurface(fireflyBody);
 	}
 	void createTerrain(Object* terrain){
-		Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 0, 1), 40, 40);
+		Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 0, 1), 100, 100);
 		plane->setTexture(terrainTexture);
 		terrain->addSurface(plane);
 	}
@@ -891,6 +943,7 @@ public:
 		for (float timeSlotBeginning = old_time; timeSlotBeginning < current_time; timeSlotBeginning += DELTA_TIME){
 			float timeSlotEnd = fminf(timeSlotBeginning + DELTA_TIME, current_time);
 			float dt = timeSlotEnd - timeSlotBeginning;
+
 			for (int i = 0; i < objectCount; ++i){
 				objects[i]->animate(dt);
 			}
@@ -965,11 +1018,15 @@ void onDisplay() {
 
 void onKeyboardUp(unsigned char key, int x, int y) {
 	if (key == 'b') {
-		scene->changeStorkState(TURN);
+		if (!GAME_MODE){
+			scene->changeStorkState(TURN);
+		}
 		scene->rotateStork(10);
 	}
 	else if (key == 'j'){
-		scene->changeStorkState(TURN);
+		if (!GAME_MODE){
+			scene->changeStorkState(TURN);
+		}
 		scene->rotateStork(-10);
 	}
 	else if (key == ' '){
