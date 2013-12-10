@@ -632,6 +632,8 @@ public:
 			}
 			
 			Vector distance = walkDir*forward;
+			//Point position = prevPosition + distance;
+			//std::cout << "x = " << position.x << " y = " << position.y << " z = " << position.z << '\n';
 			glTranslatef(distance.x, up, distance.z);
 			glTranslatef(prevPosition.x, 0, prevPosition.z);
 			//glRotatef(-45, 0, 1, 0);
@@ -667,7 +669,9 @@ public:
 		glPopMatrix();
 	}
 	void animate(float deltaTime){
-		deltaTime /= 10;
+		if (GAME_MODE){
+			deltaTime /= 1.5;
+		}
 		switch (overallState)
 		{
 		case STEP:
@@ -688,8 +692,8 @@ public:
 	void step(float deltaTime){
 		float oldFemurAngle = leftFemur->rot_angle; float oldTibiaAngle = leftTibia->rot_angle;
 		float oldFemurAngle2 = rightFemur->rot_angle; float oldTibiaAngle2 = rightTibia->rot_angle;
-		//nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
-		//nextLegState(deltaTime, &rightLegState, rightFemur, rightTibia);
+		nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
+		nextLegState(deltaTime, &rightLegState, rightFemur, rightTibia);
 		//stepping with left leg
 		if (leftLegState == 3 || leftLegState == 2){
 			forward -= fabs(leftFemur->length * sin(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * sin((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI) -
@@ -758,6 +762,7 @@ public:
 			overallState = STEP;
 			//reset to default
 			spine->rot_angle = 0;
+			//spine dir has yet to be reset!!do not count on this being right
 			headBone->rot_angle = 10;
 			headBone->dir = Vector(-1, 0, 0);
 			rotateVectorAroundZ(10, &headBone->dir);
@@ -765,11 +770,12 @@ public:
 		}
 		storkbody->bend(spine->rot_angle);
 		headBone->joint_pos = storkbody->getHeadPosition();
-		float distance = (headBone->joint_pos + headBone->dir*headBone->length).Length();
+
+		Point position = prevPosition + walkDir*forward;
 		float height = (headBone->joint_pos + headBone->dir*headBone->length).y;
-		beakTipPosition = prevPosition + walkDir*(forward + distance) + Vector(0, 1, 0)*height;
-		//std::cout << "x = " << headBone->joint_pos.x << " y = " << headBone->joint_pos.y << " z = " << headBone->joint_pos.z << '\n';
-		//std::cout << "x = " << beakTipPosition.x << " y = " << beakTipPosition.y << " z = " << beakTipPosition.z << '\n';
+		float distance = (headBone->joint_pos + headBone->dir*headBone->length).Length();
+		//expressed in world coordinate system
+		beakTipPosition = position - walkDir*(distance)+Vector(0, 1, 0)*height;
 	}
 	void turnTo(float deltaTime){
 		float dir;
@@ -796,6 +802,9 @@ public:
 	Point getBeakTipPosition(){
 		return beakTipPosition;
 	}
+	Point getPosition(){
+		return prevPosition + walkDir*forward;
+	}
 };
 
 enum FROG_STATE{JUMP, REST};
@@ -812,8 +821,9 @@ class Frog : public Object{
 	int frogID, overallState;
 
 	Stork* stork;
+	bool visible;
 public:
-	Frog(int ID, Stork* stork): frogID(ID), overallState(REST), restTimer(1500), vx(V_X), size(0.4), position(Point(0,1,0)), stork(stork){
+	Frog(int ID, Stork* stork): frogID(ID), overallState(REST), restTimer(1500), vx(V_X), size(0.4), position(Point(0,1,0)), stork(stork), visible(true){
 		frogBody = new Ellipsoid(5.5, 2.75, 3);
 		sx = 5.5; sy = 2.75; sz = 3;
 		headPos = Point(3.75, 1.5, 0);
@@ -843,27 +853,28 @@ public:
 		glPopMatrix();
 	}
 	void draw(){
-		glPushMatrix();
+		if (visible){
+			glPushMatrix();
 			glTranslatef(position.x, position.y, position.z);
 			glRotatef(45, 0, 1, 0);
 			glScalef(size, size, size);
 			frogBody->draw();
 			glPushMatrix();
-				drawHead();
+			drawHead();
 			glPopMatrix();
 			glPushMatrix();
-				glTranslatef(leftLegPos.x, leftLegPos.y, leftLegPos.z);
-				leg->draw();
+			glTranslatef(leftLegPos.x, leftLegPos.y, leftLegPos.z);
+			leg->draw();
 			glPopMatrix();
 			glPushMatrix();
-				glTranslatef(rightLegPos.x, rightLegPos.y, rightLegPos.z);
-				leg->draw();
+			glTranslatef(rightLegPos.x, rightLegPos.y, rightLegPos.z);
+			leg->draw();
 			glPopMatrix();
-		glPopMatrix();
+			glPopMatrix();
+		}
 	}
 	void animate(float deltaTime){
 		Point hitPoint;
-		float distance;
 		switch (overallState)
 		{
 		case REST:
@@ -871,17 +882,18 @@ public:
 			if (restTimer < 0){
 				overallState = JUMP;
 				vy = V_Y;
-				//srand((unsigned int)glutGet(GLUT_ELAPSED_TIME)*frogID);
-				//jumpDir = Vector(rand()-rand(), 0, rand()-rand()).normalized();
-				jumpDir = Vector(1, 0, 0);
+				srand((unsigned int)glutGet(GLUT_ELAPSED_TIME)*frogID);
+				jumpDir = Vector(rand()-rand(), 0, rand()-rand()).normalized();
 				restTimer = 1500;
 			}
 			//(0,6,0) - difference in coordinate systems
-			hitPoint = stork->getBeakTipPosition() + Point(0,6,0);
-			distance = (hitPoint - position).Length();
+			hitPoint = stork->getBeakTipPosition() + Point(0, 6, 0);
+			//distance = (hitPoint - position).Length();
 			//std::cout << "x = " << hitPoint.x << " y = " << hitPoint.y << " z = " << hitPoint.z << " d = " << distance << '\n';
-			if (fabs(hitPoint.x - position.x) < sx*size && fabs(hitPoint.y - position.y) < sy*size && fabs(hitPoint.z - position.z) < sz*size)
+			if (fabs(hitPoint.x - position.x) < sx*size && fabs(hitPoint.y - position.y) < sy*size && fabs(hitPoint.z - position.z) < sz*size){
 				std::cout << "frog finished off\n";
+				visible = false;
+			}
 			break;
 		case JUMP:
 			if (fabs(vy) <= V_Y){
@@ -890,7 +902,7 @@ public:
 				double dx = vx*deltaTime;
 				vy -= GRAVITY*deltaTime;
 				position += jumpDir*dx + Point(0, 1, 0)*dy;
-				std::cout << "x = " << position.x << " y = " << position.y << " z = " << position.z << '\n';
+				//std::cout << "x = " << position.x << " y = " << position.y << " z = " << position.z << '\n';
 			}
 			else{
 				position.y = 1;
@@ -965,8 +977,8 @@ public:
 
 		frog = new Frog(-4, stork);
 		this->addObject(frog);
-		//frog2 = new Frog(4);
-		//this->addObject(frog2);
+		frog2 = new Frog(4, stork);
+		this->addObject(frog2);
 	}
 	void createFirefly(Object* firefly){
 		Ellipsoid* fireflyBody = new Ellipsoid(0.2, 0.2, 0.2);
