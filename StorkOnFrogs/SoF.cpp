@@ -59,6 +59,7 @@
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
+#include <iostream>
 
 #define GAME_MODE true
 #define OBJ_NUM 10
@@ -424,7 +425,7 @@ public:
 		outline->addPoint(Point(2.9, -1.5, 0), weightUnit * 4);
 		outline->setup();
 
-		turnPoint = weightUnit * 4.5;
+		turnPoint = weightUnit * 3.5;
 	}
 	float radius(float u){
 		return (outline->curvePoint(u) - midline->curvePoint(u)).Length();
@@ -535,7 +536,7 @@ class Stork : public Object{
 	Bone* rightTibia;
 	Bone* spine;
 	Bone* headBone;
-	Point leftEyePos, rightEyePos, beakPos, beakTipPoistion;
+	Point leftEyePos, rightEyePos, beakPos, beakTipPosition;
 
 	//animation variables
 	//forward - how long the distance is measured from last turning point
@@ -566,7 +567,7 @@ public:
 		leftEye = new Ellipsoid(0.1, 0.1, 0.1); rightEye = new Ellipsoid(0.1, 0.1, 0.1);
 		leftEye->setMaterial(eyeBlack); rightEye->setMaterial(eyeBlack);
 		beakPos = head->surfacePoint(-U_MAX / 2, 0) + Point(0.25, 0, 0);
-		beakTipPoistion = beak->getTipPosition();
+		beakTipPosition = beak->getTipPosition();
 		beak->setMaterial(orangeRed);
 		Point leftTop = Point(-1.6, -0.25, 0.75); Point rightTop = Point(-1.6, -0.25, -0.75);
 		Vector legDirection = Vector(0, -1, 0);
@@ -624,6 +625,7 @@ public:
 			Vector distance = walkDir*forward;
 			glTranslatef(distance.x, up, distance.z);
 			glTranslatef(prevPosition.x, 0, prevPosition.z);
+			
 			glRotatef(turnState, 0, 1, 0);
 
 			storkbody->draw();
@@ -675,8 +677,8 @@ public:
 	void step(float deltaTime){
 		float oldFemurAngle = leftFemur->rot_angle; float oldTibiaAngle = leftTibia->rot_angle;
 		float oldFemurAngle2 = rightFemur->rot_angle; float oldTibiaAngle2 = rightTibia->rot_angle;
-		nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
-		nextLegState(deltaTime, &rightLegState, rightFemur, rightTibia);
+		//nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
+		//nextLegState(deltaTime, &rightLegState, rightFemur, rightTibia);
 		//stepping with left leg
 		if (leftLegState == 3 || leftLegState == 2){
 			forward -= fabs(leftFemur->length * sin(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * sin((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI) -
@@ -748,6 +750,9 @@ public:
 		}
 		storkbody->bend(spine->rot_angle);
 		headBone->joint_pos = storkbody->getHeadPosition();
+		beakTipPosition = beak->getTipPosition();
+		std::cout << "x = " << headBone->joint_pos.x << " y = " << headBone->joint_pos.y << " z = " << headBone->joint_pos.z << '\n';
+		//std::cout << "x = " << beakTipPosition.x << " y = " << beakTipPosition.y << " z = " << beakTipPosition.z << '\n';
 	}
 	void turnTo(float deltaTime){
 		float dir;
@@ -914,20 +919,20 @@ public:
 		Object* terrain = new Object();
 		createTerrain(terrain);
 		terrain->translate(Vector(-50, -0.5, -50));
-		this->addObject(terrain);
+		//this->addObject(terrain);
 
-		Object* firefly = new Object();
-		createFirefly(firefly);
-		firefly->translate(Vector(0, 8, 0));
-		this->addObject(firefly);
+		//Object* firefly = new Object();
+		//createFirefly(firefly);
+		//firefly->translate(Vector(0, 8, 0));
+		//this->addObject(firefly);
 
 		stork = new Stork();
 		this->addObject(stork);
 
-		frog = new Frog(-4);
-		this->addObject(frog);
-		frog2 = new Frog(4);
-		this->addObject(frog2);
+		//frog = new Frog(-4);
+		//this->addObject(frog);
+		//frog2 = new Frog(4);
+		//this->addObject(frog2);
 	}
 	void createFirefly(Object* firefly){
 		Ellipsoid* fireflyBody = new Ellipsoid(0.2, 0.2, 0.2);
