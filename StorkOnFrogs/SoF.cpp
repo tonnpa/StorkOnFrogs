@@ -158,6 +158,11 @@ struct ModelTransformation{
 	}
 };
 
+void rotateVectorAroundZ(float degree, Vector* v){
+	v->x = v->x * cos(degree / 180.0*PI) - v->y * sin(degree / 180.0*PI);
+	v->y = v->x * sin(degree / 180.0*PI) + v->y * cos(degree / 180.0*PI);
+}
+
 class CTRSpline{
 	float t[POINT_CNT];
 	Point p[POINT_CNT];
@@ -374,9 +379,6 @@ public:
 		Vector drdv = Vector(0, (1 - u / U_MAX) *r*cos(v), -(1 - u / U_MAX) *r*sin(v));
 		return drdu%drdv;
 	}
-	Point getTipPosition(){
-		return surfacePoint(U_MAX, 0);
-	}
 };
 
 class Cylinder : public ParamSurface{
@@ -440,13 +442,9 @@ public:
 		Vector B = Vector(0, 0, 1);
 		Point bodyPoint = midline->curvePoint(u) + B*radius(u)*cos(v) + normal(u)*radius(u)*sin(v);
 		if (u < turnPoint && turnState != 0){
-			Point bentBodyPoint;
 			//smooth skinning
 			float degree = turnState - u / turnPoint*turnState;
-			bentBodyPoint.x = bodyPoint.x * cos(degree / 180.0*PI) - bodyPoint.y * sin(degree / 180.0*PI);
-			bentBodyPoint.y = bodyPoint.x * sin(degree / 180.0*PI) + bodyPoint.y * cos(degree / 180.0*PI);
-			bentBodyPoint.z = bodyPoint.z;
-			return bentBodyPoint;
+			rotateVectorAroundZ(degree, &bodyPoint);
 		}
 		return bodyPoint;
 	}
@@ -476,8 +474,14 @@ public:
 	void bend(float phi){
 		turnState = phi;
 	}
+	Point getTurnPointPosition(){
+		return midline->curvePoint(turnPoint);
+	}
 	Point getHeadPosition(){
 		return surfacePoint(0, 0);
+	}
+	Point getMidlinePoint(float u){
+		return midline->curvePoint(u);
 	}
 };
 
@@ -557,32 +561,37 @@ public:
 	Stork() :overallState(STEP), leftLegState(1), rightLegState(2), forward(0), up(0), turnAngle(0), turnState(0), prevPosition(Point(0, 0, 0)), walkDir(Vector(1, 0, 0)), moveDown(true), turnLeft(true){
 		storkbody = new StorkBody();
 		storkbody->setMaterial(storkWhite);
-		Point sPL = Point(-2.85, 1.15, 0); Point sPU = Point(-5.9, 6.25, 0); Point beakTip = Point(-7.6, 3.75, 0);
-		spine = new Bone(sPL, 0, Vector(0, 0, 1), (sPU-sPL).Length(), sPU-sPL);
+		//point of middle of head, top of spine
+		Point sPTop = storkbody->getMidlinePoint(0);
+		//point where the spine starts turning
+		Point sPBottom = storkbody->getTurnPointPosition();
+		//vector connecting the two points
+		Vector spineDir = sPTop - sPBottom;
+		spine = new Bone(sPBottom, 0, Vector(0, 0, 1), spineDir.Length(), spineDir.normalized());
 		head = new Ellipsoid(0.85, 0.6, 0.5);
 		head->setMaterial(storkWhite);
-		headBone = new Bone(storkbody->getHeadPosition(), 10, Vector(0, 0, 1), 3.5, beakTip - sPU);
-		beak = new Cone(4, 0.25);
+		headBone = new Bone(storkbody->getHeadPosition(), 10, Vector(0, 0, 1), 0.85/2+4, Vector(-1,0,0));
 		leftEyePos = head->surfacePoint(-U_MAX / 4, -V_MAX / 8); rightEyePos = head->surfacePoint(-U_MAX / 4 * 3, -V_MAX / 8);
 		leftEye = new Ellipsoid(0.1, 0.1, 0.1); rightEye = new Ellipsoid(0.1, 0.1, 0.1);
 		leftEye->setMaterial(eyeBlack); rightEye->setMaterial(eyeBlack);
-		beakPos = head->surfacePoint(-U_MAX / 2, 0) + Point(0.25, 0, 0);
-		beakTipPosition = beak->getTipPosition();
+		beak = new Cone(4, 0.25);
 		beak->setMaterial(orangeRed);
+		beakPos = head->surfacePoint(-U_MAX / 2, 0) - headBone->dir*0.25;
+		beakTipPosition = headBone->joint_pos + headBone->dir*headBone->length;
 		Point leftTop = Point(-1.6, -0.25, 0.75); Point rightTop = Point(-1.6, -0.25, -0.75);
-		Vector legDirection = Vector(0, -1, 0);
+		Vector legDir = Vector(0, -1, 0);
 		float upperLegLength = 3; float lowerLegLength = 3;
-		leftUpperLeg = new Cylinder(legDirection, upperLegLength, 0.2);
-		leftLowerLeg = new Cylinder(legDirection, lowerLegLength, 0.2);
-		rightUpperLeg = new Cylinder(legDirection, upperLegLength, 0.2);
-		rightLowerLeg = new Cylinder(legDirection, lowerLegLength, 0.2);
+		leftUpperLeg = new Cylinder(legDir, upperLegLength, 0.2);
+		leftLowerLeg = new Cylinder(legDir, lowerLegLength, 0.2);
+		rightUpperLeg = new Cylinder(legDir, upperLegLength, 0.2);
+		rightLowerLeg = new Cylinder(legDir, lowerLegLength, 0.2);
 		leftUpperLeg->setMaterial(orangeRed); leftLowerLeg->setMaterial(orangeRed);
 		rightUpperLeg->setMaterial(orangeRed); rightLowerLeg->setMaterial(orangeRed);
 		storkbody->setTexture(storkTexture);
-		leftFemur = new Bone(leftTop, -30, Vector(0, 0, 1), upperLegLength, legDirection);
-		rightFemur = new Bone(rightTop, 30, Vector(0, 0, 1), upperLegLength, legDirection);
-		leftTibia = new Bone(legDirection*upperLegLength, 0, Vector(0, 0, 1), lowerLegLength, legDirection);
-		rightTibia = new Bone(legDirection*upperLegLength, 0, Vector(0, 0, 1), lowerLegLength, legDirection);
+		leftFemur = new Bone(leftTop, -30, Vector(0, 0, 1), upperLegLength, legDir);
+		rightFemur = new Bone(rightTop, 30, Vector(0, 0, 1), upperLegLength, legDir);
+		leftTibia = new Bone(legDir*upperLegLength, 0, Vector(0, 0, 1), lowerLegLength, legDir);
+		rightTibia = new Bone(legDir*upperLegLength, 0, Vector(0, 0, 1), lowerLegLength, legDir);
 	}
 	void drawHead(){
 		head->draw();
@@ -625,7 +634,8 @@ public:
 			Vector distance = walkDir*forward;
 			glTranslatef(distance.x, up, distance.z);
 			glTranslatef(prevPosition.x, 0, prevPosition.z);
-			
+			//glRotatef(-45, 0, 1, 0);
+			//glScalef(2, 2, 2);
 			glRotatef(turnState, 0, 1, 0);
 
 			storkbody->draw();
@@ -657,6 +667,7 @@ public:
 		glPopMatrix();
 	}
 	void animate(float deltaTime){
+		deltaTime /= 10;
 		switch (overallState)
 		{
 		case STEP:
@@ -739,19 +750,25 @@ public:
 		else
 			dir = -1;
 		spine->rot_angle += dir*deltaTime / (500 / 30)*DELTA_ANGLE;
+		rotateVectorAroundZ(dir*deltaTime / (500 / 30)*DELTA_ANGLE, &spine->dir);
 		headBone->rot_angle += dir*deltaTime / (500 / 50)*DELTA_ANGLE;
+		rotateVectorAroundZ(dir*deltaTime / (500 / 50)*DELTA_ANGLE, &headBone->dir);
 		if (spine->rot_angle < 0){
 			//change state
 			overallState = STEP;
 			//reset to default
 			spine->rot_angle = 0;
 			headBone->rot_angle = 10;
+			headBone->dir = Vector(-1, 0, 0);
+			rotateVectorAroundZ(10, &headBone->dir);
 			moveDown = true;
 		}
 		storkbody->bend(spine->rot_angle);
 		headBone->joint_pos = storkbody->getHeadPosition();
-		beakTipPosition = beak->getTipPosition();
-		std::cout << "x = " << headBone->joint_pos.x << " y = " << headBone->joint_pos.y << " z = " << headBone->joint_pos.z << '\n';
+		float distance = (headBone->joint_pos + headBone->dir*headBone->length).Length();
+		float height = (headBone->joint_pos + headBone->dir*headBone->length).y;
+		beakTipPosition = prevPosition + walkDir*(forward + distance) + Vector(0, 1, 0)*height;
+		//std::cout << "x = " << headBone->joint_pos.x << " y = " << headBone->joint_pos.y << " z = " << headBone->joint_pos.z << '\n';
 		//std::cout << "x = " << beakTipPosition.x << " y = " << beakTipPosition.y << " z = " << beakTipPosition.z << '\n';
 	}
 	void turnTo(float deltaTime){
@@ -776,6 +793,9 @@ public:
 		turnAngle -= dir*deltaTime / (500 / 3)*DELTA_ANGLE;
 		turnState += dir*deltaTime / (500 / 3)*DELTA_ANGLE;
 	}
+	Point getBeakTipPosition(){
+		return beakTipPosition;
+	}
 };
 
 enum FROG_STATE{JUMP, REST};
@@ -788,12 +808,14 @@ class Frog : public Object{
 	Point position, headPos, leftEyePos, rightEyePos, leftLegPos, rightLegPos;
 
 	Vector jumpDir;
-	float vx, vy, restTimer;
+	float vx, vy, size, restTimer, sx, sy, sz;
 	int frogID, overallState;
+
+	Stork* stork;
 public:
-	Frog(int ID): frogID(ID), overallState(REST), restTimer(1500), vx(V_X){
-		position = Point(0, 1, 0);
+	Frog(int ID, Stork* stork): frogID(ID), overallState(REST), restTimer(1500), vx(V_X), size(0.4), position(Point(0,1,0)), stork(stork){
 		frogBody = new Ellipsoid(5.5, 2.75, 3);
+		sx = 5.5; sy = 2.75; sz = 3;
 		headPos = Point(3.75, 1.5, 0);
 		head = new Ellipsoid(2, 2, 2.5);
 		leftEyePos = head->surfacePoint(U_MAX / 4, V_MAX / 8);
@@ -824,7 +846,7 @@ public:
 		glPushMatrix();
 			glTranslatef(position.x, position.y, position.z);
 			glRotatef(45, 0, 1, 0);
-			glScalef(0.4, 0.4, 0.4);
+			glScalef(size, size, size);
 			frogBody->draw();
 			glPushMatrix();
 				drawHead();
@@ -840,6 +862,8 @@ public:
 		glPopMatrix();
 	}
 	void animate(float deltaTime){
+		Point hitPoint;
+		float distance;
 		switch (overallState)
 		{
 		case REST:
@@ -847,10 +871,17 @@ public:
 			if (restTimer < 0){
 				overallState = JUMP;
 				vy = V_Y;
-				srand((unsigned int)glutGet(GLUT_ELAPSED_TIME)*frogID);
-				jumpDir = Vector(rand()-rand(), 0, rand()-rand()).normalized();
+				//srand((unsigned int)glutGet(GLUT_ELAPSED_TIME)*frogID);
+				//jumpDir = Vector(rand()-rand(), 0, rand()-rand()).normalized();
+				jumpDir = Vector(1, 0, 0);
 				restTimer = 1500;
 			}
+			//(0,6,0) - difference in coordinate systems
+			hitPoint = stork->getBeakTipPosition() + Point(0,6,0);
+			distance = (hitPoint - position).Length();
+			//std::cout << "x = " << hitPoint.x << " y = " << hitPoint.y << " z = " << hitPoint.z << " d = " << distance << '\n';
+			if (fabs(hitPoint.x - position.x) < sx*size && fabs(hitPoint.y - position.y) < sy*size && fabs(hitPoint.z - position.z) < sz*size)
+				std::cout << "frog finished off\n";
 			break;
 		case JUMP:
 			if (fabs(vy) <= V_Y){
@@ -859,9 +890,12 @@ public:
 				double dx = vx*deltaTime;
 				vy -= GRAVITY*deltaTime;
 				position += jumpDir*dx + Point(0, 1, 0)*dy;
+				std::cout << "x = " << position.x << " y = " << position.y << " z = " << position.z << '\n';
 			}
-			else
+			else{
+				position.y = 1;
 				overallState = REST;
+			}
 			break;
 		default:
 			break;
@@ -919,7 +953,7 @@ public:
 		Object* terrain = new Object();
 		createTerrain(terrain);
 		terrain->translate(Vector(-50, -0.5, -50));
-		//this->addObject(terrain);
+		this->addObject(terrain);
 
 		//Object* firefly = new Object();
 		//createFirefly(firefly);
@@ -929,8 +963,8 @@ public:
 		stork = new Stork();
 		this->addObject(stork);
 
-		//frog = new Frog(-4);
-		//this->addObject(frog);
+		frog = new Frog(-4, stork);
+		this->addObject(frog);
 		//frog2 = new Frog(4);
 		//this->addObject(frog2);
 	}
