@@ -290,7 +290,7 @@ public:
 		isMaterialized = true;
 		this->material = material;
 	}
-	virtual void draw(){
+	void draw(){
 		if (isTextured)
 			texture->setOpenGL();
 		else
@@ -632,8 +632,8 @@ public:
 			}
 			
 			Vector distance = walkDir*forward;
-			//Point position = prevPosition + distance;
-			//std::cout << "x = " << position.x << " y = " << position.y << " z = " << position.z << '\n';
+			Point position = prevPosition + distance;
+			std::cout << "x = " << position.x << " y = " << position.y << " z = " << position.z << '\n';
 			glTranslatef(distance.x, up, distance.z);
 			glTranslatef(prevPosition.x, 0, prevPosition.z);
 			//glRotatef(-45, 0, 1, 0);
@@ -670,7 +670,7 @@ public:
 	}
 	void animate(float deltaTime){
 		if (GAME_MODE){
-			deltaTime /= 1.5;
+			deltaTime /= 2;
 		}
 		switch (overallState)
 		{
@@ -774,8 +774,9 @@ public:
 		Point position = prevPosition + walkDir*forward;
 		float height = (headBone->joint_pos + headBone->dir*headBone->length).y;
 		float distance = (headBone->joint_pos + headBone->dir*headBone->length).Length();
-		//expressed in world coordinate system
-		beakTipPosition = position - walkDir*(distance)+Vector(0, 1, 0)*height;
+		//expressed in world coordinate system(except for the height)
+		beakTipPosition = position - walkDir*(distance) + Vector(0, 1, 0)*height;
+		//std::cout << "x = " << beakTipPosition.x << " y = " << beakTipPosition.y << " z = " << beakTipPosition.z << '\n';
 	}
 	void turnTo(float deltaTime){
 		float dir;
@@ -891,7 +892,7 @@ public:
 			//distance = (hitPoint - position).Length();
 			//std::cout << "x = " << hitPoint.x << " y = " << hitPoint.y << " z = " << hitPoint.z << " d = " << distance << '\n';
 			if (fabs(hitPoint.x - position.x) < sx*size && fabs(hitPoint.y - position.y) < sy*size && fabs(hitPoint.z - position.z) < sz*size){
-				std::cout << "frog finished off\n";
+				std::cout << "Congratulations! You just wiped out an endangered species...\n";
 				visible = false;
 			}
 			break;
@@ -960,6 +961,7 @@ public:
 		for (int i = 0; i < objectCount; ++i){
 			objects[i]->draw();
 		}
+		
 	}
 	void build(){
 		Object* terrain = new Object();
@@ -967,10 +969,10 @@ public:
 		terrain->translate(Vector(-50, -0.5, -50));
 		this->addObject(terrain);
 
-		//Object* firefly = new Object();
-		//createFirefly(firefly);
-		//firefly->translate(Vector(0, 8, 0));
-		//this->addObject(firefly);
+		Object* firefly = new Object();
+		createFirefly(firefly);
+		firefly->translate(Vector(0, 8, 0));
+		this->addObject(firefly);
 
 		stork = new Stork();
 		this->addObject(stork);
