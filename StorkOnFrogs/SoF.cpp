@@ -59,7 +59,7 @@
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
-#include <iostream>
+//#include <iostream>
 
 #define GAME_MODE true
 #define OBJ_NUM 10
@@ -73,6 +73,7 @@
 #define V_X 1.0
 #define V_Y 2.0
 #define GRAVITY 0.5
+#define NO_MOVEMENT false
 
 struct Vector {
 	float x, y, z;
@@ -252,7 +253,7 @@ public:
 		glBindTexture(GL_TEXTURE_2D, texID);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 	};
 };
 
@@ -290,16 +291,17 @@ public:
 		isMaterialized = true;
 		this->material = material;
 	}
-	void draw(){
-		if (isTextured)
-			texture->setOpenGL();
-		else
-			glDisable(GL_TEXTURE_2D);
-		if (isMaterialized)
-			material->setOpenGL();
-		else
-			glDisable(GL_LIGHTING);
-
+	void draw(bool shadow){
+		if (!shadow){
+			if (isTextured)
+				texture->setOpenGL();
+			else
+				glDisable(GL_TEXTURE_2D);
+			if (isMaterialized)
+				material->setOpenGL();
+			else
+				glDisable(GL_LIGHTING);
+		}
 		glBegin(GL_TRIANGLES);
 		for (int u = 0; u < U_MAX; ++u){
 			for (int v = 0; v < V_MAX; ++v){
@@ -510,11 +512,11 @@ public:
 			surfaceCount++;
 		}
 	}
-	virtual void draw(){
+	virtual void draw(bool shadow){
 		glPushMatrix();
 		transformation.setOpenGL();
 		for (int i = 0; i < surfaceCount; ++i)
-			surfaces[i]->draw();
+			surfaces[i]->draw(shadow);
 		glPopMatrix();
 	}
 	virtual void animate(float deltaTime){}
@@ -593,19 +595,19 @@ public:
 		leftTibia = new Bone(legDir*upperLegLength, 0, Vector(0, 0, 1), lowerLegLength, legDir);
 		rightTibia = new Bone(legDir*upperLegLength, 0, Vector(0, 0, 1), lowerLegLength, legDir);
 	}
-	void drawHead(){
-		head->draw();
+	void drawHead(bool displayShadow){
+		head->draw(displayShadow);
 		glPushMatrix();
 			glTranslatef(leftEyePos.x, leftEyePos.y, leftEyePos.z);
-			leftEye->draw();
+			leftEye->draw(displayShadow);
 		glPopMatrix();
 		glPushMatrix();
 			glTranslatef(rightEyePos.x, rightEyePos.y, rightEyePos.z);
-			rightEye->draw();
+			rightEye->draw(displayShadow);
 		glPopMatrix();
 		glPushMatrix();
 			glTranslatef(beakPos.x, beakPos.y, beakPos.z);
-			beak->draw();
+			beak->draw(displayShadow);
 		glPopMatrix();
 	}
 	void turn(float phi){
@@ -618,7 +620,7 @@ public:
 	void changeState(int newState){
 		overallState = newState;
 	}
-	void draw(){
+	void draw(bool displayShadow){
 		glPushMatrix();
 			if (GAME_MODE){
 				//update position before last turn
@@ -633,37 +635,37 @@ public:
 			
 			Vector distance = walkDir*forward;
 			Point position = prevPosition + distance;
-			std::cout << "x = " << position.x << " y = " << position.y << " z = " << position.z << '\n';
+			//std::cout << "x = " << position.x << " y = " << position.y << " z = " << position.z << '\n';
 			glTranslatef(distance.x, up, distance.z);
 			glTranslatef(prevPosition.x, 0, prevPosition.z);
 			//glRotatef(-45, 0, 1, 0);
 			//glScalef(2, 2, 2);
 			glRotatef(turnState, 0, 1, 0);
 
-			storkbody->draw();
+			storkbody->draw(displayShadow);
 
 			glPushMatrix();
 				glTranslatef(headBone->joint_pos.x, headBone->joint_pos.y, headBone->joint_pos.z);
 				glRotatef(headBone->rot_angle, headBone->rot_axis.x, headBone->rot_axis.y, headBone->rot_axis.z);
-				drawHead();
+				drawHead(displayShadow);
 			glPopMatrix();
 
 			glPushMatrix();
 				glTranslatef(leftFemur->joint_pos.x, leftFemur->joint_pos.y, leftFemur->joint_pos.z);
 				glRotatef(leftFemur->rot_angle, leftFemur->rot_axis.x, leftFemur->rot_axis.y, leftFemur->rot_axis.z);
-				leftUpperLeg->draw();
+				leftUpperLeg->draw(displayShadow);
 				glTranslatef(leftTibia->joint_pos.x, leftTibia->joint_pos.y, leftTibia->joint_pos.z);
 				glRotatef(leftTibia->rot_angle, leftTibia->rot_axis.x, leftTibia->rot_axis.y, leftTibia->rot_axis.z);
-				leftLowerLeg->draw();
+				leftLowerLeg->draw(displayShadow);
 			glPopMatrix();
 
 			glPushMatrix();
 				glTranslatef(rightFemur->joint_pos.x, rightFemur->joint_pos.y, rightFemur->joint_pos.z);
 				glRotatef(rightFemur->rot_angle, rightFemur->rot_axis.x, rightFemur->rot_axis.y, rightFemur->rot_axis.z);
-				rightUpperLeg->draw();
+				rightUpperLeg->draw(displayShadow);
 				glTranslatef(rightTibia->joint_pos.x, rightTibia->joint_pos.y, rightTibia->joint_pos.z);
 				glRotatef(rightTibia->rot_angle, rightTibia->rot_axis.x, rightTibia->rot_axis.y, rightTibia->rot_axis.z);
-				rightLowerLeg->draw();
+				rightLowerLeg->draw(displayShadow);
 			glPopMatrix();
 
 		glPopMatrix();
@@ -692,8 +694,10 @@ public:
 	void step(float deltaTime){
 		float oldFemurAngle = leftFemur->rot_angle; float oldTibiaAngle = leftTibia->rot_angle;
 		float oldFemurAngle2 = rightFemur->rot_angle; float oldTibiaAngle2 = rightTibia->rot_angle;
-		nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
-		nextLegState(deltaTime, &rightLegState, rightFemur, rightTibia);
+		if (!NO_MOVEMENT){
+			nextLegState(deltaTime, &leftLegState, leftFemur, leftTibia);
+			nextLegState(deltaTime, &rightLegState, rightFemur, rightTibia);
+		}
 		//stepping with left leg
 		if (leftLegState == 3 || leftLegState == 2){
 			forward -= fabs(leftFemur->length * sin(leftFemur->rot_angle / 180.0*PI) + leftTibia->length * sin((leftTibia->rot_angle + leftFemur->rot_angle) / 180.0*PI) -
@@ -841,35 +845,35 @@ public:
 		eye->setMaterial(eyeBlack);
 		leg->setMaterial(frogGreen);
 	}
-	void drawHead(){
+	void drawHead(bool displayShadow){
 		glTranslatef(headPos.x, headPos.y, headPos.z);
-		head->draw();
+		head->draw(displayShadow);
 		glPushMatrix();
 			glTranslatef(leftEyePos.x, leftEyePos.y, leftEyePos.z);
-			eye->draw();
+			eye->draw(displayShadow);
 		glPopMatrix();
 		glPushMatrix();
 			glTranslatef(rightEyePos.x, rightEyePos.y, rightEyePos.z);
-			eye->draw();
+			eye->draw(displayShadow);
 		glPopMatrix();
 	}
-	void draw(){
+	void draw(bool displayShadow){
 		if (visible){
 			glPushMatrix();
 			glTranslatef(position.x, position.y, position.z);
 			glRotatef(45, 0, 1, 0);
 			glScalef(size, size, size);
-			frogBody->draw();
+			frogBody->draw(displayShadow);
 			glPushMatrix();
-			drawHead();
+			drawHead(displayShadow);
 			glPopMatrix();
 			glPushMatrix();
 			glTranslatef(leftLegPos.x, leftLegPos.y, leftLegPos.z);
-			leg->draw();
+			leg->draw(displayShadow);
 			glPopMatrix();
 			glPushMatrix();
 			glTranslatef(rightLegPos.x, rightLegPos.y, rightLegPos.z);
-			leg->draw();
+			leg->draw(displayShadow);
 			glPopMatrix();
 			glPopMatrix();
 		}
@@ -885,6 +889,9 @@ public:
 				vy = V_Y;
 				srand((unsigned int)glutGet(GLUT_ELAPSED_TIME)*frogID);
 				jumpDir = Vector(rand()-rand(), 0, rand()-rand()).normalized();
+				if (NO_MOVEMENT){
+					jumpDir = Vector(0, 0, 0);
+				}
 				restTimer = 1500;
 			}
 			//(0,6,0) - difference in coordinate systems
@@ -892,7 +899,7 @@ public:
 			//distance = (hitPoint - position).Length();
 			//std::cout << "x = " << hitPoint.x << " y = " << hitPoint.y << " z = " << hitPoint.z << " d = " << distance << '\n';
 			if (fabs(hitPoint.x - position.x) < sx*size && fabs(hitPoint.y - position.y) < sy*size && fabs(hitPoint.z - position.z) < sz*size){
-				std::cout << "Congratulations! You just wiped out an endangered species...\n";
+				//std::cout << "Congratulations! You just wiped out an endangered species...\n";
 				visible = false;
 			}
 			break;
@@ -958,10 +965,22 @@ public:
 		float positionalPos[] = { 7.8, 7.8, -25, 1 };
 		glLightfv(GL_LIGHT0, GL_POSITION, pos);
 		glLightfv(GL_LIGHT1, GL_POSITION, positionalPos);
+		bool displayShadow = false;
 		for (int i = 0; i < objectCount; ++i){
-			objects[i]->draw();
+			objects[i]->draw(displayShadow);
 		}
-		
+		float shadow_mtx[4][4] = { 1, 0, 0, 0,
+			-pos[0] / pos[1], 0, -pos[2] / pos[1], 0,
+			0, 0, 1, 0,
+			0, 0.001, 0, 1 };
+		glMultMatrixf(&shadow_mtx[0][0]);
+		glDisable(GL_LIGHTING);
+		glColor3f(0, 0, 0);
+		displayShadow = true;
+		stork->draw(displayShadow);
+		frog->draw(displayShadow);
+		frog2->draw(displayShadow);
+		glEnable(GL_LIGHTING);
 	}
 	void build(){
 		Object* terrain = new Object();
