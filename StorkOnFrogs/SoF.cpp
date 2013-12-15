@@ -60,7 +60,7 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Innentol modosithatod...
 
-#define GAME_MODE false
+#define GAME_MODE true
 #define OBJ_NUM 10
 #define PI 3.14159
 #define POINT_CNT 5
@@ -251,7 +251,7 @@ public:
 		glBindTexture(GL_TEXTURE_2D, texID);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	};
 };
 
@@ -415,7 +415,7 @@ public:
 		midline->addPoint(Point(-5.1, 6, 0), 0);
 		midline->addPoint(Point(-4.7, 3.35, 0), weightUnit * 1);
 		midline->addPoint(Point(-2.85, 1.15, 0), weightUnit * 2);
-		midline->addPoint(Point(0, 0, 0), weightUnit * 3);
+		midline->addPoint(Point(0.001, 0.001, 0.001), weightUnit * 3);
 		midline->addPoint(Point(2.55, -1.75, 0), weightUnit * 4);
 		midline->setup();
 
@@ -441,7 +441,7 @@ public:
 		v = v / V_MAX * 2 * PI;
 		Vector B = Vector(0, 0, 1);
 		Point bodyPoint = midline->curvePoint(u) + B*radius(u)*cos(v) + normal(u)*radius(u)*sin(v);
-		if (u < turnPoint && turnState != 0){
+		if (u < turnPoint && turnState > EPS){
 			float degree = turnState - u / turnPoint*turnState;
 			rotateVectorAroundZ(degree, &bodyPoint);
 		}
@@ -958,6 +958,7 @@ public:
 	void createTerrain(Object* terrain){
 		Plane* plane = new Plane(Point(0, 0, 0), Vector(1, 0, 0), Vector(0, 0, 1), 100, 100);
 		plane->setTexture(terrainTexture);
+		plane->setMaterial(storkWhite);
 		terrain->addSurface(plane);
 	}
 	void simulateWorld(float old_time, float current_time){
