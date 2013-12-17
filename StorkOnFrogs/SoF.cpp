@@ -64,8 +64,8 @@
 #define OBJ_NUM 10
 #define PI 3.14159
 #define POINT_CNT 5
-#define U_MAX 20
-#define V_MAX 20
+#define U_MAX 12
+#define V_MAX 12
 #define EPS 0.0001
 #define DELTA_TIME 20.0
 #define DELTA_ANGLE 4.0
@@ -411,7 +411,7 @@ class StorkBody : public ParamSurface{
 public:
 	StorkBody() : turnState(0){
 		midline = new CTRSpline();
-		float weightUnit = U_MAX / (POINT_CNT - 1);
+		float weightUnit = (float) U_MAX / (POINT_CNT - 1);
 		midline->addPoint(Point(-5.1, 6, 0), 0);
 		midline->addPoint(Point(-4.7, 3.35, 0), weightUnit * 1);
 		midline->addPoint(Point(-2.85, 1.15, 0), weightUnit * 2);
